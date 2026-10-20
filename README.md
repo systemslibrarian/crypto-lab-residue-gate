@@ -75,7 +75,7 @@ The Actions workflow gates Pages deployment and Dependabot auto-merge on the ent
 
 Prime generation and attacks run off-thread. The 2048-bit modulus is real; the explicitly labelled 437 toy fixture makes every residue and root inspectable. Batch measurements report actual outcomes, not a universal success/refusal probability. Timings belong to the executing browser.
 
-Fleet integration is pending central accent, favicon, category and port confirmation. Local port 4223 is provisional; the required full sibling census was unavailable. No catalog entry has been changed.
+The Crypto Lab catalog integration records this lab’s concept, level, source evidence and fleet automation. Playwright port 4223 is unique across all 223 registered configurations; strictPort is enforced and existing servers are never reused.
 
 ---
 
