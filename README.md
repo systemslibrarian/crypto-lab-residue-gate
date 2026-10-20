@@ -51,7 +51,7 @@ npm run dev
 
 ## Related Demos
 
-[Hidden Bit](https://systemslibrarian.github.io/crypto-lab-hidden-bit/), [Factor Forge](https://systemslibrarian.github.io/crypto-lab-factor-forge/), [Prime Witness](https://systemslibrarian.github.io/crypto-lab-prime-witness/), [Rabin Williams](https://systemslibrarian.github.io/crypto-lab-rabin-williams/).
+[Hidden Bit](https://systemslibrarian.github.io/crypto-lab-hidden-bit/), [Factor Forge](https://systemslibrarian.github.io/crypto-lab-factor-forge/), [Prime Witness](https://systemslibrarian.github.io/crypto-lab-prime-witness/).
 
 Source review used the exact sibling commits pinned in the brief. Existing roots, factoring and residuosity components overlap in primitives; this lab joins the residue classification, encryption, root selection and oracle break into one experiment. It does not claim those primitives were absent from the fleet.
 
