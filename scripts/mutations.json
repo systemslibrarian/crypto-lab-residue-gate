@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Jacobi sign",
+    "file": "src/nt/jacobi.ts",
+    "anchor": "r===3n||r===5n",
+    "replacement": "r===1n||r===7n",
+    "test": "canonical oracle returns"
+  },
+  {
+    "name": "GM reads public symbol",
+    "file": "src/gm/gm.ts",
+    "anchor": "jacobi(c,p)",
+    "replacement": "jacobi(c,N)",
+    "test": "GM decrypts"
+  },
+  {
+    "name": "wrong canonical class",
+    "file": "src/rabin/rabin.ts",
+    "anchor": "jacobi(r,p)===1&&jacobi(r,q)===1",
+    "replacement": "jacobi(r,p)===-1&&jacobi(r,q)===1",
+    "test": "canonical oracle returns"
+  },
+  {
+    "name": "redundancy bypass",
+    "file": "src/rabin/rabin.ts",
+    "anchor": "fourRoots(c,p,q).filter(r=>hasRedundancy(r,k))",
+    "replacement": "fourRoots(c,p,q).slice(0,1).filter(r=>k>0 && r>0n)",
+    "test": "redundancy refuses"
+  },
+  {
+    "name": "negative claim removed",
+    "file": "src/main.ts",
+    "anchor": "One-wayness equivalent to factoring does not provide chosen-ciphertext security.",
+    "replacement": "The computation finished.",
+    "test": "canonical oracle returns"
+  },
+  {
+    "name": "game tally wrong",
+    "file": "src/main.ts",
+    "anchor": "history.filter(x=>x.correct).length+' / '+history.length",
+    "replacement": "history.filter(x=>x.correct).length+1+' / '+history.length",
+    "test": "game tally equals"
+  }
+]
