@@ -103,6 +103,46 @@ test('final-state validity rejection and accepted valid-residue tampering stay d
  await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('did not authenticate a sender');
 });
 
+test('older asynchronous stream actions cannot overwrite newer ciphertext actions',async({page})=>{
+ await stream(page,'1001110000010000','5');
+ const out=page.locator('#bg-out');
+
+ // A decrypt begun for the original wire value must not be rendered after a
+ // later synchronous bit mutation changes the current ciphertext.
+ await page.evaluate(()=>{
+  (document.querySelector('#bg-decrypt') as HTMLButtonElement).click();
+  (document.querySelector('#bg-flip') as HTMLButtonElement).click();
+ });
+ await expect(out).toHaveAttribute('data-bg-stale-decrypt-discarded',/\d+/);
+ await expect(page.locator('[data-verdict=bg-tampered]')).toContainText('Bit 1 of block 1');
+ await expect(page.locator('[data-verdict=bg-decrypt]')).toHaveCount(0);
+
+ // A pending final-state selection is also older than a later bit mutation.
+ // Its worker response may not replace the newer wire value or scenario.
+ await page.getByRole('button',{name:'Encrypt',exact:true}).click();
+ await page.evaluate(()=>{
+  (document.querySelector('#bg-tamper-invalid') as HTMLButtonElement).click();
+  (document.querySelector('#bg-flip') as HTMLButtonElement).click();
+ });
+ await expect(out).toHaveAttribute('data-bg-stale-final-state-discarded',/\d+/);
+ const final=await page.locator('[data-bg-final]').getAttribute('data-bg-final');
+ const original=await page.locator('[data-bg-final]').getAttribute('data-bg-original-final');
+ expect(final).toBe(original);
+ await expect(page.locator('[data-verdict=bg-tampered]')).toContainText('Bit 1 of block 1');
+ await expect(page.locator('[data-verdict=bg-tampered]')).not.toContainText('outside QR');
+
+ // If selection and decrypt are clicked back-to-back, decrypt owns the later
+ // action and remains attached to the original valid ciphertext it submitted.
+ await page.getByRole('button',{name:'Encrypt',exact:true}).click();
+ await page.evaluate(()=>{
+  (document.querySelector('#bg-tamper-invalid') as HTMLButtonElement).click();
+  (document.querySelector('#bg-decrypt') as HTMLButtonElement).click();
+ });
+ await expect(out).toHaveAttribute('data-bg-stale-final-state-discarded',/\d+/);
+ await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('DECRYPTED — the rewind landed on x₀');
+ await expect(page.locator('[data-verdict=bg-validity-refusal]')).toHaveCount(0);
+});
+
 test('an invalid seed is refused by name and retires the stream result',async({page})=>{
  await stream(page,'1001110000010000','5');
  await page.locator('#bg-seed').fill('19');          // 19 divides 437
@@ -149,8 +189,12 @@ test('same-seed control derives the two-time-pad XOR relation from both cipherte
  await stream(page,'1001110000010000','5');
  await page.getByRole('button',{name:'Show same-seed leak'}).click();
  const row=page.locator('[data-bg-reuse-cxor]');
+ const c1=await row.getAttribute('data-bg-reuse-c1'),c2=await row.getAttribute('data-bg-reuse-c2');
  const c=await row.getAttribute('data-bg-reuse-cxor'),m=await row.getAttribute('data-bg-reuse-pxor');
- expect(c).toBe(m);expect(c).toBe('1111111111111111');
+ expect(c1).not.toBeNull();expect(c2).not.toBeNull();
+ expect(refXor(c1!,c2!)).toBe(c);
+ expect(c).toBe(m);expect(c).toBe(refXor('1001110000010000','0110001111101111'));
+ expect(await row.getAttribute('data-bg-reuse-final1')).toBe(await row.getAttribute('data-bg-reuse-final2'));
  await expect(page.locator('[data-verdict=bg-reuse]')).toContainText('Fresh randomness is part of probabilistic encryption');
 });
 

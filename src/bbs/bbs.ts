@@ -188,7 +188,7 @@ export function previousState(x: bigint, p: bigint, q: bigint): bigint {
  *
  * For a ciphertext with t blocks the caller passes steps = t+1, because the
  * transmitted state is x_{t+1} and the target is x_0. An off-by-one here lands on
- * x_1 or x_{-1} and corrupts every block.
+ * x_1 or x_{-1}, misaligns the recovered chain, and can corrupt plaintext blocks.
  */
 export function rewind(x: bigint, key: BlumKey, steps: number): {x0: bigint; d1: bigint; d2: bigint; u: bigint; v: bigint} {
  const {p, q, n, a, b} = key;

@@ -131,5 +131,26 @@
     "anchor": "bbs=bbsBits(e.seedState,k.N,8,true)",
     "replacement": "bbs=bbsBits(e.seedState,k.N,8,false)",
     "test": "the live BBS and HAC bit sequences have the documented one-state offset"
+  },
+  {
+    "name": "stale decrypt response is rendered after a newer action",
+    "file": "src/main.ts",
+    "anchor": "if(revision!==actionRevision){out.dataset.bgStaleDecryptDiscarded=String(revision);return;}",
+    "replacement": "if(false){out.dataset.bgStaleDecryptDiscarded=String(revision);return;}",
+    "test": "older asynchronous stream actions cannot overwrite newer ciphertext actions"
+  },
+  {
+    "name": "stale final-state response overwrites a newer action",
+    "file": "src/main.ts",
+    "anchor": "if(pendingRevision!==actionRevision){out.dataset.bgStaleFinalStateDiscarded=String(pendingRevision);return;}",
+    "replacement": "if(false){out.dataset.bgStaleFinalStateDiscarded=String(pendingRevision);return;}",
+    "test": "older asynchronous stream actions cannot overwrite newer ciphertext actions"
+  },
+  {
+    "name": "reuse evidence substitutes the first ciphertext for the second",
+    "file": "src/main.ts",
+    "anchor": "data-bg-reuse-c2=\"'+c2+'\"",
+    "replacement": "data-bg-reuse-c2=\"'+c1+'\"",
+    "test": "same-seed control derives the two-time-pad XOR relation from both ciphertexts"
   }
 ]
