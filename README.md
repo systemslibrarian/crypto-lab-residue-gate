@@ -77,7 +77,7 @@ npm run test:mutations
 
 The suite contains 38 unit tests, including fresh 2048-bit key generation, exhaustive toy roots and oracle outcomes, GM round trips, module-boundary checks, deterministic testing of the rejection sampler, malformed-ciphertext guards, and the two published Blum–Goldwasser and BBS worked examples reproduced down to every intermediate. No coverage percentage is claimed. Twenty-four browser claims rederive roots, gcd factors, generator states, keystream blocks, the seed-reuse relation, public-cycle predecessor, disclosure boundary and BBS/HAC indexing from displayed data using arithmetic written in the test file, and reject stale asynchronous outcomes. Thirty-eight concrete mutations must build, change bundle bytes, fail a named previously passing test, restore exactly, and pass again.
 
-Production-build accessibility scans run at 1280 and 320 pixels through real success, reuse, disclosure, ciphertext tampering, non-residue refusal, accepted altered-residue and invalid-seed controls. The fleet's contrast and non-text oracles are preserved; no failed rule is disabled. Browser checks run in CI when no supported local browser-control surface is available.
+Production-build accessibility scans run at 1280 and 320 pixels through real success, reuse, disclosure, ciphertext tampering, non-residue refusal, accepted altered-residue, empty-message evidence and invalid-seed controls. The fleet's contrast and non-text oracles are preserved; no failed rule is disabled. Browser checks run in CI when no supported local browser-control surface is available.
 
 The Actions workflow gates Pages deployment and Dependabot auto-merge on the entire suite, handles PRs and manual dispatch, and dispatches deployment after an automated merge.
 
