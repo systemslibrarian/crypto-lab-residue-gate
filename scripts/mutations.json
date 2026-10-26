@@ -264,5 +264,13 @@
     "anchor": "wireRows=cipher.blocks.length?cipher.blocks.map((b,i)=>[i+1,b]):[['—','No ciphertext blocks (empty message)']]",
     "replacement": "wireRows=cipher.blocks.map((b,i)=>[i+1,b])",
     "test": "empty messages do not claim a visible two-time-pad XOR leak"
+  },
+  {
+    "name": "equal-prime rejection gives a false QR permutation reason",
+    "file": "src/bbs/bbs.ts",
+    "anchor": "HAC Algorithm 8.55 requires distinct primes p and q: p = q makes N a perfect square whose factor is its public integer square root, and the two-modulus CRT/Bézout construction fails because gcd(p, q) ≠ 1.",
+    "replacement": "HAC Algorithm 8.55 requires distinct primes p and q: p = q makes N a square and squaring is not a permutation of QR_N.",
+    "runner": "unit",
+    "test": "the seed and modulus domain is enforced, each failure naming its condition"
   }
 ]

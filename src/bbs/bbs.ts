@@ -53,7 +53,7 @@ export function blockSizes(n: bigint): BlockSizes {
  * Each failure names the condition it violated.
  */
 export function makeBlumKey(p: bigint, q: bigint): BlumKey & {sevenMod8: boolean} {
- if (p === q) throw Error('Blum primes must be distinct: p = q makes n a square and squaring is not a permutation of QR_n.');
+ if (p === q) throw Error('HAC Algorithm 8.55 requires distinct primes p and q: p = q makes N a perfect square whose factor is its public integer square root, and the two-modulus CRT/Bézout construction fails because gcd(p, q) ≠ 1.');
  if (p < 3n || q < 3n) throw Error('Both primes must be at least 3.');
  if (mod(p, 4n) !== 3n) throw Error('p ≡ ' + mod(p, 4n) + ' (mod 4); HAC 8.55 requires p ≡ 3 (mod 4) so that (p+1)/4 is an integer.');
  if (mod(q, 4n) !== 3n) throw Error('q ≡ ' + mod(q, 4n) + ' (mod 4); HAC 8.55 requires q ≡ 3 (mod 4) so that (q+1)/4 is an integer.');

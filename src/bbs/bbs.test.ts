@@ -182,7 +182,7 @@ it('round trips at the smallest usable Blum modulus and over many messages', () 
 // ---------------------------------------------------------------------------
 
 it('the seed and modulus domain is enforced, each failure naming its condition', () => {
- expect(() => makeBlumKey(19n, 19n)).toThrow('distinct');
+ expect(() => makeBlumKey(19n, 19n)).toThrow('HAC Algorithm 8.55 requires distinct primes p and q: p = q makes N a perfect square whose factor is its public integer square root, and the two-modulus CRT/Bézout construction fails because gcd(p, q) ≠ 1.');
  expect(() => makeBlumKey(5n, 19n)).toThrow('p ≡ 1 (mod 4)');
  expect(() => makeBlumKey(19n, 13n)).toThrow('q ≡ 1 (mod 4)');
  // Composites chosen ≡ 3 (mod 4) so they reach the primality check rather than
