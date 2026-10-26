@@ -1,10 +1,10 @@
 # Residue Gate
 
-Quadratic residues · Goldwasser–Micali · Rabin · chosen-ciphertext attacks
+Quadratic residues · Goldwasser–Micali · Rabin · Blum–Goldwasser · chosen-ciphertext attacks
 
 ## What It Is
 
-A browser-only laboratory for the gap between a public Jacobi symbol and private quadratic residuosity. Square actual numbers, encrypt bits, recover four Rabin roots, and factor a modulus through a deliberately vulnerable root oracle.
+A browser-only laboratory for the gap between a public Jacobi symbol and private quadratic residuosity. Square actual numbers, encrypt bits, recover four Rabin roots, factor a modulus through a deliberately vulnerable root oracle, and run the Blum–Goldwasser stream whose state chain goes forward for anyone and backward only for the factor holder.
 
 Built to the [Crypto Lab master template](https://github.com/systemslibrarian/crypto-lab/blob/main/audits/_MASTER-TEMPLATE.md); the original brief is included. Shared UI and accessibility machinery derives from MIT-licensed Crypto Lab siblings by Paul Clark.
 
@@ -15,6 +15,7 @@ Built to the [Crypto Lab master template](https://github.com/systemslibrarian/cr
 3. Real randomized Goldwasser–Micali encryption, repeated ciphertexts, and public XOR malleability.
 4. All four Rabin roots, canonical selection, redundant encoding, and randomized one-bit Rabin.
 5. A root-oracle attack receiving only N and one answer. A recovered factor is independently multiplied back and can decrypt earlier GM ciphertexts under the deliberately shared session modulus.
+6. The Blum–Blum–Shub `x² mod N` generator and Blum–Goldwasser encryption: a real state chain, the emitted keystream blocks, the transmitted final state, and the factor-assisted rewind that recovers the seed state in one exponentiation per prime. State disclosure, ciphertext-bit tampering and final-state tampering are each demonstrated with the consequence the construction actually has.
 
 ## When to Use It
 
@@ -32,13 +33,18 @@ Teach why public Jacobi +1 is insufficient to classify squares, and why one-wayn
 - The quadratic residuosity assumption is an assumption. The page does not assert a proven equivalence to factoring.
 - Plain deterministic Rabin, randomized one-bit Rabin, and CCA-secure encryption have distinct guarantees.
 - The private factors remain in the session worker/closure. The attacker module cannot import them. The trusted educational root panel deliberately shows information the attack interface does not receive.
+- Blum–Goldwasser is a stream cipher with **no authentication**. Flipping a ciphertext bit flips exactly that plaintext bit and nothing rejects it, because the scheme has nothing to reject with. HAC Note 8.58(iii) records that it also falls to a chosen-ciphertext attack, as Rabin does.
+- Disclosing an internal generator state hands over **every later** keystream block to anyone holding N, and **nothing earlier**. Blum, Blum and Shub §7 claim 1 gives the first; claim 2 gives the second, because running the chain backward is exactly what needs the factors. The page states that boundary rather than implying state exposure reveals the past.
+- The three published descriptions of this generator **do not share an indexing convention**, and they differ by one squaring. Experiment 6 runs HAC Algorithm 8.56 and says so on the page; BBS 1986 and Blum–Goldwasser 1984 each emit their first bit one state earlier.
+- Bits that look random are not evidence of pseudorandomness, and this lab runs no statistical test that could be mistaken for a proof.
+- Experiment 6 is **not** BBS credential signing or any BBS+ signature scheme. The initials collide; the constructions are unrelated.
 - JavaScript BigInt is variable-time. No keys are persisted. Key regeneration terminates the old worker and retires old results.
 
 ## Real-World Usage
 
 Quadratic residuosity underlies the historical Goldwasser–Micali construction and related proof systems. Rabin illustrates an unusually direct relationship between inversion and factoring, while exposing the separate problem of secure decryption interfaces.
 
-Primary sources: Katz–Lindell, third edition §§9.1, 11.3 and 15.3; [HAC Chapter 2](https://cacr.uwaterloo.ca/hac/about/chap2.pdf) and [Chapter 3](https://cacr.uwaterloo.ca/hac/about/chap3.pdf). Source details and scope corrections appear in the page. The general-prime root implementation uses Tonelli–Shanks, a standard order-halving algorithm, instead of reproducing the brief's textbook pseudocode verbatim.
+Primary sources: Katz–Lindell, third edition §§9.1, 11.3 and 15.3; [HAC Chapter 2](https://cacr.uwaterloo.ca/hac/about/chap2.pdf) and [Chapter 3](https://cacr.uwaterloo.ca/hac/about/chap3.pdf). For experiment 6, read rather than summarised: [L. Blum, M. Blum and M. Shub, "A Simple Unpredictable Pseudo-Random Number Generator", *SIAM J. Comput.* **15**(2), May 1986, pp. 364–383](https://doi.org/10.1137/0215025) — §4 for the generator and its worked example at N = 133, §7 for Lemma 1, claims 1–3 and Theorem 3; [M. Blum and S. Goldwasser, "An Efficient Probabilistic Public-Key Encryption Scheme Which Hides All Partial Information", *CRYPTO '84*, LNCS **196**, pp. 289–299](https://doi.org/10.1007/3-540-39568-7_23) — "How to Encode m", Algorithms A and B and the Decoding Lemma, pp. 293–294; and [HAC Chapter 5](https://cacr.uwaterloo.ca/hac/about/chap5.pdf) Algorithm 5.40 with [Chapter 8](https://cacr.uwaterloo.ca/hac/about/chap8.pdf) Algorithms 8.55–8.56 and Example 8.57, which is pinned as a known-answer test down to every published intermediate. Source details and scope corrections appear in the page. The general-prime root implementation uses Tonelli–Shanks, a standard order-halving algorithm, instead of reproducing the brief's textbook pseudocode verbatim.
 
 ## How to Run Locally
 
@@ -65,7 +71,7 @@ npm run test:e2e
 npm run test:mutations
 ```
 
-The initial local run passed 17 tests, including fresh 2048-bit key generation, exhaustive toy roots and oracle outcomes, GM round trips, and module-boundary checks. No coverage percentage is claimed. Browser claims rederive roots and gcd factors from displayed data. Six concrete mutations must build, change bundle bytes, fail a named previously passing test, restore exactly, and pass again.
+The local run passes 33 unit tests, including fresh 2048-bit key generation, exhaustive toy roots and oracle outcomes, GM round trips, module-boundary checks, and the two published Blum–Goldwasser and BBS worked examples reproduced down to every intermediate. No coverage percentage is claimed. Browser claims rederive roots, gcd factors, generator states and keystream blocks from displayed data using arithmetic written in the test file. Fourteen concrete mutations must build, change bundle bytes, fail a named previously passing test, restore exactly, and pass again.
 
 Production-build accessibility scans run at 1280 and 320 pixels through real success, refusal and disclosure controls. The fleet's contrast and non-text oracles are preserved; no failed rule is disabled. Browser checks run in CI when no supported local browser-control surface is available.
 
