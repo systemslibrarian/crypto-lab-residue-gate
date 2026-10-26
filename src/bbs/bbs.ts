@@ -119,8 +119,9 @@ export function bbsBits(x0: bigint, n: bigint, count: number, includeSeedBit: bo
  * HAC 8.56 step 1. Encrypts a bit string under the public modulus alone.
  *
  * Bit order: blocks are taken left to right; p_i is the h least significant bits of
- * x_i written most significant bit first. A final block shorter than h is XORed
- * against the FIRST s bits of p_t; the remaining keystream bits of that block are
+ * x_i written most significant bit first. HAC writes M as t complete h-bit blocks.
+ * This lab's explicitly disclosed teaching adaptation permits one short final block:
+ * it is XORed against the FIRST s bits of p_t, and the remaining keystream bits are
  * discarded and never reused. The plaintext bit length travels with the ciphertext,
  * so no bits are invented and none are lost.
  */

@@ -114,7 +114,7 @@
   {
     "name": "input retirement keeps an old stream scenario alive",
     "file": "src/main.ts",
-    "anchor": "const life=bindRetirement(panel,out,clear),seedMode=",
+    "anchor": "const life=bindRetirement(panel,out,()=>clear('input')),seedMode=",
     "replacement": "const life=bindRetirement(panel,out),seedMode=",
     "test": "input and session retirement erase the stored stream scenario"
   },
@@ -171,7 +171,63 @@
     "name": "unexpected worker errors masquerade as validity refusals",
     "file": "src/main.ts",
     "anchor": "sourceScenario==='final-invalid'&&bgValidityError(e)&&encEpoch===epoch",
-    "replacement": "sourceScenario==='final-invalid'&&true&&encEpoch===epoch",
+    "replacement": "sourceScenario==='final-invalid'&&(bgValidityError(e)||true)&&encEpoch===epoch",
+    "test": "an unexpected worker error is not presented as a validity refusal"
+  },
+  {
+    "name": "session retirement leaves sender secrets in the main-thread closure",
+    "file": "src/main.ts",
+    "anchor": "function destroy(){retireBbsSecrets('session');epoch++;",
+    "replacement": "function destroy(){epoch++;",
+    "test": "input and session retirement erase the stored stream scenario"
+  },
+  {
+    "name": "HAC prime requirement is weakened to probable-prime wording",
+    "file": "src/main.ts",
+    "anchor": "HAC Algorithm 8.55 requires two distinct <strong>primes p,q ≡ 3 (mod 4)</strong>",
+    "replacement": "HAC Algorithm 8.55 uses two distinct <strong>probable primes p,q ≡ 3 (mod 4)</strong>",
+    "test": "the stream exhibit states exact assumptions, roles, work and scope"
+  },
+  {
+    "name": "GM and BG security foundations are conflated",
+    "file": "src/main.ts",
+    "anchor": "Goldwasser–Micali semantic security is based on quadratic residuosity; HAC Note 8.58(i) states Blum–Goldwasser semantic security assuming integer factorization is intractable.",
+    "replacement": "Both schemes have the same quadratic-residuosity security foundation.",
+    "test": "the stream exhibit states exact assumptions, roles, work and scope"
+  },
+  {
+    "name": "short final block is presented as a verbatim HAC case",
+    "file": "src/main.ts",
+    "anchor": "This lab’s short final-block support is an explicit teaching adaptation",
+    "replacement": "HAC directly specifies this lab’s short final-block behavior",
+    "test": "the stream exhibit states exact assumptions, roles, work and scope"
+  },
+  {
+    "name": "empty reuse demonstration claims an XOR leak with no ciphertext bits",
+    "file": "src/main.ts",
+    "anchor": "if(!enc.plaintext.length)throw Error('The XOR-leak control needs two non-empty messages. With an empty message there are no ciphertext bits to XOR; only repeated final-state linkability remains visible.');",
+    "replacement": "if(false)throw Error('The XOR-leak control needs two non-empty messages. With an empty message there are no ciphertext bits to XOR; only repeated final-state linkability remains visible.');",
+    "test": "empty messages do not claim a visible two-time-pad XOR leak"
+  },
+  {
+    "name": "manual fixed-point cycle is hidden from the disclosure result",
+    "file": "src/main.ts",
+    "anchor": "let cycleSteps:number|null=disclosed===enc.seedState?0:null;",
+    "replacement": "let cycleSteps:number|null=null;",
+    "test": "manual fixed-point seeds expose the entire earlier stream rather than receiving a backward-security claim"
+  },
+  {
+    "name": "sender-original table is mislabeled as matching a changed wire ciphertext",
+    "file": "src/main.ts",
+    "anchor": "const blocksMatch=cipher.blocks.every((b,i)=>b===enc!.blocks[i])",
+    "replacement": "const blocksMatch=true",
+    "test": "flipping one ciphertext bit flips one plaintext bit and is not detected"
+  },
+  {
+    "name": "worker transport failure is mislabeled as an input refusal",
+    "file": "src/main.ts",
+    "anchor": "else if(workerOperationError(e))setOperationError(out,e);",
+    "replacement": "else if(workerOperationError(e)){setOperationError(out,e);setError(out,e);}",
     "test": "an unexpected worker error is not presented as a validity refusal"
   }
 ]

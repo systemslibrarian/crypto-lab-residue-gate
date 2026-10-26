@@ -9,7 +9,7 @@ export function createOracle(p:bigint,q:bigint){
  encrypt:(bits:string)=>encryptGM(bits,N,z),decrypt:(c:bigint[])=>decryptGM(c,p,q),
  rootEvidence:(c:bigint)=>fourRoots(c,p,q).map(r=>({root:r,jp:jacobi(r,p),jq:jacobi(r,q)})),
  // A-D-13. The Blum–Goldwasser key is built on first use: createOracle has already
- // proved p and q prime, and rebuilding it eagerly would repeat that work at keygen.
+ // screened p and q with 40 Miller–Rabin rounds, and rebuilding it eagerly would repeat that work at keygen.
  // Only the key-holder side lives here. Encryption and the public forward walk need
  // nothing but N and run on the main thread, which is what makes that boundary real.
  bgDecrypt:(cipher:BGCiphertext)=>decryptBG(cipher,bgKey()),

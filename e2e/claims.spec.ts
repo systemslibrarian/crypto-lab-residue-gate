@@ -18,7 +18,7 @@ function refChain(seed:bigint,n:bigint,count:number):bigint[]{const out:bigint[]
 function refLow(x:bigint,h:number):string{let s='';for(let b=h-1;b>=0;b--)s+=String((x>>BigInt(b))&1n);return s;}
 function refXor(a:string,b:string):string{return [...a].map((c,i)=>String(Number(c)^Number(b[i]))).join('');}
 async function stream(page:Page,bits='1001110000010000',seed='5'){await toy(page);await page.getByRole('tab',{name:/Rewind the stream/}).click();await page.locator('#bg-seed-mode').selectOption('manual');await page.locator('#bg-bits').fill(bits);await page.locator('#bg-seed').fill(seed);await page.getByRole('button',{name:'Encrypt',exact:true}).click();await expect(page.locator('[data-bg-final]')).toBeAttached();}
-async function teachingRows(page:Page){return Promise.all((await page.getByRole('region',{name:'Sender state-chain calculation'}).locator('tbody tr').all()).map(async r=>r.locator('td').allTextContents()));}
+async function teachingRows(page:Page){return Promise.all((await page.getByRole('region',{name:'Sender original state-chain calculation'}).locator('tbody tr').all()).map(async r=>r.locator('td').allTextContents()));}
 
 test('BBS stream encrypt matches an independent chain and block extraction',async({page})=>{
  const message='1001110000010000';await stream(page,message,'5');
@@ -60,7 +60,7 @@ test('state disclosure exposes its current block and every later wire block',asy
  const N=BigInt((await page.locator('[data-key-N]').getAttribute('data-key-N'))!);const h=3;
  await page.getByRole('button',{name:'Disclose x₂'}).click();
  const verdictBox=page.locator('[data-verdict=bg-disclosed]');
- await expect(verdictBox).toContainText('CURRENT AND SUBSEQUENT OUTPUT IS EXPOSED');
+ await expect(verdictBox).toContainText('PUBLIC CYCLE EXPOSES THE EARLIER STREAM TOO');
  const disclosure=page.locator('[data-bg-disclosed]');
  const disclosed=BigInt((await disclosure.getAttribute('data-bg-disclosed'))!);
  const first=Number(await disclosure.getAttribute('data-bg-disclosure-first'));
@@ -72,8 +72,24 @@ test('state disclosure exposes its current block and every later wire block',asy
  const recovered=blocks.map((b,i)=>refXor(b,keys[i].slice(0,b.length))).join('');
  expect(recovered).toBe(message.slice(h));
  expect(await disclosure.getAttribute('data-bg-disclosure-recovered')).toBe(recovered);
+ expect(await disclosure.getAttribute('data-bg-disclosure-all')).toBe(message);
+ await expect(disclosure).toHaveAttribute('data-bg-cycle-steps','28');
  await expect(disclosure).toHaveAttribute('data-bg-cycle',/28 forward squarings/);
- await expect(verdictBox).toContainText('not an information-theoretic promise');
+ await expect(disclosure).toContainText('Earlier wire bits recovered after the public cycle');
+ await expect(verdictBox).toContainText('fresh uniformly sampled start at cryptographic sizes');
+});
+
+test('manual fixed-point seeds expose the entire earlier stream rather than receiving a backward-security claim',async({page})=>{
+ for(const seed of ['1','436']){
+  const message='1001110000010000';await stream(page,message,seed);
+  await page.getByRole('button',{name:'Disclose x₂'}).click();
+  const disclosure=page.locator('[data-bg-disclosed]');
+  await expect(disclosure).toHaveAttribute('data-bg-disclosed','1');
+  await expect(disclosure).toHaveAttribute('data-bg-cycle-steps','0');
+  await expect(disclosure).toHaveAttribute('data-bg-disclosure-all',message);
+  await expect(page.locator('[data-verdict=bg-disclosed]')).toContainText('manual seed entered a public fixed point');
+  await expect(page.locator('[data-verdict=bg-disclosed]')).not.toContainText('not recovered by this bounded check');
+ }
 });
 
 test('flipping one ciphertext bit flips one plaintext bit and is not detected',async({page})=>{
@@ -81,6 +97,11 @@ test('flipping one ciphertext bit flips one plaintext bit and is not detected',a
  await page.getByRole('button',{name:'Apply one-bit mutation'}).click();
  await page.getByRole('button',{name:'Apply one-bit mutation'}).click(); // idempotent scenario, not a toggle
  await expect(page.locator('[data-verdict=bg-tampered]')).toContainText('no authentication');
+ const senderFirst=(await page.getByRole('region',{name:'Sender original state-chain calculation'}).locator('tbody tr').first().locator('td').last().textContent())!;
+ const wireFirst=(await page.getByRole('region',{name:'Transmitted ciphertext blocks'}).locator('tbody tr').first().locator('td').last().textContent())!;
+ expect(senderFirst).not.toBe(wireFirst);
+ await expect(page.locator('[data-bg-blocks-match-original]')).toHaveAttribute('data-bg-blocks-match-original','no');
+ await expect(page.locator('[data-bg-blocks-match-original]')).toContainText('sender table preserves the original ciphertext');
  await page.getByRole('button',{name:'Decrypt with the factors'}).click();
  await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('DECRYPTED TO A CHANGED MESSAGE');
  const flipped=String(1-Number(message[0]))+message.slice(1);
@@ -201,7 +222,10 @@ test('an unexpected worker error is not presented as a validity refusal',async({
  });
  await expect(page.locator('#bg-out')).toContainText('synthetic worker transport failure');
  await expect(page.locator('[data-verdict=bg-validity-refusal]')).toHaveCount(0);
- await expect(page.locator('#bg-out .verdict')).toContainText('Input refused');
+ await expect(page.locator('#bg-out .verdict')).toContainText('Operation failed');
+ await expect(page.locator('#bg-out .verdict')).not.toContainText('Input refused');
+ await page.getByRole('button',{name:'Generate session key',exact:true}).click();
+ await expect(page.locator('[data-key-N]')).toHaveAttribute('data-key-N','437');
 });
 
 test('an invalid seed is refused by name and retires the stream result',async({page})=>{
@@ -221,10 +245,18 @@ test('the stream exhibit states exact assumptions, roles, work and scope',async(
  await expect(panel).toContainText('HAC Algorithm 8.56');
  await expect(panel).toContainText('emits nothing');
  await expect(panel).toContainText('BBS 1986 §4');
+ await expect(panel).toContainText('HAC Algorithm 8.55 requires two distinct primes');
  await expect(panel).toContainText('p,q ≡ 3 (mod 4)');
  await expect(panel).toContainText('p,q ≡ 7 (mod 8)');
+ await expect(panel).toContainText('40 Miller–Rabin rounds');
+ await expect(panel).toContainText('assume the accepted candidates really are prime');
  await expect(panel).toContainText('fresh uniform');
  await expect(panel).toContainText('does not transmit r');
+ await expect(panel).toContainText('not every hand-picked seed');
+ await expect(panel).toContainText('short final-block support is an explicit teaching adaptation');
+ await expect(panel).toContainText('not a verbatim HAC case');
+ await expect(panel).toContainText('Goldwasser–Micali semantic security is based on quadratic residuosity');
+ await expect(panel).toContainText('HAC Note 8.58(i) states Blum–Goldwasser semantic security assuming integer factorization is intractable');
  await expect(panel).toContainText('not BBS credential signing');
  await expect(panel).toContainText('unauthenticated and malleable');
  await expect(panel).toContainText('not evidence of pseudorandomness');
@@ -263,6 +295,16 @@ test('same-seed control derives the two-time-pad XOR relation from both cipherte
  await expect(page.locator('[data-verdict=bg-reuse]')).toContainText('Fresh randomness is part of probabilistic encryption');
 });
 
+test('empty messages do not claim a visible two-time-pad XOR leak',async({page})=>{
+ await stream(page,'','1');
+ await page.locator('#bg-reuse-bits').fill('');
+ await page.getByRole('button',{name:'Show same-seed leak'}).click();
+ const out=page.locator('#bg-out');
+ await expect(out).toContainText('there are no ciphertext bits to XOR');
+ await expect(out).toContainText('only repeated final-state linkability remains visible');
+ await expect(page.locator('[data-verdict=bg-reuse]')).toHaveCount(0);
+});
+
 test('the live BBS and HAC bit sequences have the documented one-state offset',async({page})=>{
  await stream(page,'1001110000010000','5');
  const N=437n,x0=25n,rows=await page.getByRole('region',{name:'BBS indexing comparison'}).locator('tbody tr').all();
@@ -285,9 +327,18 @@ test('input and session retirement erase the stored stream scenario',async({page
   await expect(page.locator('#bg-out')).toContainText('Encrypt a message first');
  }
  await stream(page,'1001110000010000','5');
+ const out=page.locator('#bg-out');
  await page.getByRole('button',{name:'Generate session key',exact:true}).click();
+ await expect(out).toHaveAttribute('data-bg-secrets-cleared','session');
  await expect(page.locator('[data-key-N]')).toBeVisible();
  await page.getByRole('button',{name:'Decrypt with the factors'}).click();
  await expect(page.locator('[data-bg-final]')).toHaveCount(0);
  await expect(page.locator('#bg-out')).toContainText(/session key changed|Encrypt a message first/);
+ await stream(page,'1001110000010000','5');
+ const cancelled=page.locator('#bg-out');
+ await page.getByRole('button',{name:'Discard key \/ cancel',exact:true}).click();
+ await expect(cancelled).toHaveAttribute('data-bg-secrets-cleared','session');
+ await page.getByRole('button',{name:'Show same-seed leak'}).click();
+ await expect(page.locator('[data-bg-final]')).toHaveCount(0);
+ await expect(cancelled).toContainText('Generate a session key');
 });
