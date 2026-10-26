@@ -272,5 +272,12 @@
     "replacement": "HAC Algorithm 8.55 requires distinct primes p and q: p = q makes N a square and squaring is not a permutation of QR_N.",
     "runner": "unit",
     "test": "the seed and modulus domain is enforced, each failure naming its condition"
+  },
+  {
+    "name": "late error from a retired worker kills the replacement session",
+    "file": "src/main.ts",
+    "anchor": "active.terminate();if(worker!==active)return;worker=null;",
+    "replacement": "active.terminate();if(false)return;worker=null;",
+    "test": "a late error from a retired worker cannot kill its replacement session"
   }
 ]

@@ -282,6 +282,34 @@ test('an unexpected worker error is not presented as a validity refusal',async({
  await expect(page.locator('[data-key-N]')).toHaveAttribute('data-key-N','437');
 });
 
+test('a late error from a retired worker cannot kill its replacement session',async({page})=>{
+ await boot(page);
+ await page.evaluate(()=>{
+  const original=Worker.prototype.terminate,retired:Worker[]=[];
+  (window as unknown as {__retiredWorkers:Worker[]}).__retiredWorkers=retired;
+  Worker.prototype.terminate=function(this:Worker):void{retired.push(this);original.call(this);};
+ });
+ await page.locator('#key-size').selectOption('16');
+ await page.getByRole('button',{name:'Generate session key',exact:true}).click();
+ await expect(page.locator('[data-key-N]')).toHaveAttribute('data-key-N','437');
+ await page.getByRole('button',{name:'Generate session key',exact:true}).click();
+ await expect(page.locator('[data-key-N]')).toHaveAttribute('data-key-N','437');
+ await page.getByRole('tab',{name:/Rewind the stream/}).click();
+ await page.locator('#bg-seed-mode').selectOption('manual');
+ await page.locator('#bg-bits').fill('1001110000010000');
+ await page.locator('#bg-seed').fill('5');
+ await page.getByRole('button',{name:'Encrypt',exact:true}).click();
+ await page.evaluate(()=>{
+  (document.querySelector('#bg-decrypt') as HTMLButtonElement).click();
+  const retired=(window as unknown as {__retiredWorkers:Worker[]}).__retiredWorkers;
+  if(retired.length!==1)throw Error('Expected exactly one retired worker.');
+  retired[0].dispatchEvent(new ErrorEvent('error',{message:'late stale worker failure'}));
+ });
+ await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('DECRYPTED — the rewind landed on x₀');
+ await expect(page.locator('[data-key-N]')).toHaveAttribute('data-key-N','437');
+ await expect(page.locator('#key-state')).not.toContainText('Session failed');
+});
+
 test('an invalid seed is refused by name and retires the stream result',async({page})=>{
  await stream(page,'1001110000010000','5');
  await page.locator('#bg-seed').fill('19');          // 19 divides 437
