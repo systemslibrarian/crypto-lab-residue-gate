@@ -297,7 +297,6 @@ test('same-seed control derives the two-time-pad XOR relation from both cipherte
 
 test('empty messages do not claim a visible two-time-pad XOR leak',async({page})=>{
  await stream(page,'','1');
- await page.locator('#bg-reuse-bits').fill('');
  await page.getByRole('button',{name:'Show same-seed leak'}).click();
  const out=page.locator('#bg-out');
  await expect(out).toContainText('there are no ciphertext bits to XOR');
