@@ -40,5 +40,245 @@
     "anchor": "history.filter(x=>x.correct).length+' / '+history.length",
     "replacement": "history.filter(x=>x.correct).length+1+' / '+history.length",
     "test": "game tally equals"
+  },
+  {
+    "name": "repeated-squaring transition",
+    "file": "src/bbs/bbs.ts",
+    "anchor": " for (let i = 1; i <= t; i++) {\n  x = x * x % n;\n  states.push(x);",
+    "replacement": " for (let i = 1; i <= t; i++) {\n  x = x * x * x % n;\n  states.push(x);",
+    "test": "BBS stream encrypt matches an independent chain"
+  },
+  {
+    "name": "emitted block extraction takes the wrong bits",
+    "file": "src/bbs/bbs.ts",
+    "anchor": " const v = x & ((1n << BigInt(h)) - 1n);",
+    "replacement": " const v = (x >> 1n) & ((1n << BigInt(h)) - 1n);",
+    "test": "BBS stream encrypt matches an independent chain"
+  },
+  {
+    "name": "partial final block is padded instead of kept short",
+    "file": "src/bbs/bbs.ts",
+    "anchor": "  blocks.push([...piece].map((bit, j) => String(Number(bit) ^ Number(key[j]))).join(''));",
+    "replacement": "  blocks.push([...key].map((bit, j) => String(Number(piece[j] ?? '0') ^ Number(bit))).join(''));",
+    "test": "BBS stream encrypt matches an independent chain"
+  },
+  {
+    "name": "seed domain validation bypassed",
+    "file": "src/bbs/bbs.ts",
+    "anchor": " const g = gcd(r, n);",
+    "replacement": " const g = 1n * gcd(r, n) * 0n + 1n;",
+    "test": "an invalid seed is refused by name"
+  },
+  {
+    "name": "rewind index off by one",
+    "file": "src/bbs/bbs.ts",
+    "anchor": " const {x0} = rewind(finalState, key, t + 1);",
+    "replacement": " const {x0} = rewind(finalState, key, t < 1 ? 1 : t);",
+    "test": "the factors rewind the transmitted state back to the seed state"
+  },
+  {
+    "name": "CRT recombination halves swapped",
+    "file": "src/bbs/bbs.ts",
+    "anchor": " return {x0: mod(v * a * p + u * b * q, n), d1, d2, u, v};",
+    "replacement": " return {x0: mod(u * a * p + v * b * q, n), d1, d2, u, v};",
+    "test": "the factors rewind the transmitted state back to the seed state"
+  },
+  {
+    "name": "ciphertext tampering silently does nothing",
+    "file": "src/bbs/bbs.ts",
+    "anchor": " const blocks = cipher.blocks.map((b, i) => i !== block ? b : b.slice(0, bit) + String(1 - Number(b[bit])) + b.slice(bit + 1));",
+    "replacement": " const blocks = cipher.blocks.map((b, i) => i !== block ? b : b.slice(0, bit) + String(Number(b[bit])) + b.slice(bit + 1));",
+    "test": "flipping one ciphertext bit flips one plaintext bit"
+  },
+  {
+    "name": "state disclosure skips its current block",
+    "file": "src/main.ts",
+    "anchor": "wireBlocks=cipher.blocks.slice(index),",
+    "replacement": "wireBlocks=cipher.blocks.slice(index+1),",
+    "test": "state disclosure exposes its current block and every later wire block"
+  },
+  {
+    "name": "fresh-random default silently becomes fixed manual coins",
+    "file": "src/main.ts",
+    "anchor": "usedFreshCoins=seedMode.value==='fresh';",
+    "replacement": "usedFreshCoins=false;",
+    "test": "fresh coins are the default while manual coins are an explicit override"
+  },
+  {
+    "name": "repeated tamper action toggles back to the original ciphertext",
+    "file": "src/main.ts",
+    "anchor": "cipher=flipCipherBit(originalCipher(enc),0,0);",
+    "replacement": "cipher=flipCipherBit(cipher??originalCipher(enc),0,0);",
+    "test": "flipping one ciphertext bit flips one plaintext bit and is not detected"
+  },
+  {
+    "name": "input retirement keeps an old stream scenario alive",
+    "file": "src/main.ts",
+    "anchor": "const life=bindRetirement(panel,out,()=>clear('input')),seedMode=",
+    "replacement": "const life=bindRetirement(panel,out),seedMode=",
+    "test": "input and session retirement erase the stored stream scenario"
+  },
+  {
+    "name": "altered valid-residue control substitutes the rejected state",
+    "file": "src/main.ts",
+    "anchor": "finalState:kind==='rejected'?states.rejected:states.accepted",
+    "replacement": "finalState:kind==='rejected'?states.rejected:states.rejected",
+    "test": "final-state validity rejection and accepted valid-residue tampering stay distinct"
+  },
+  {
+    "name": "BBS comparison starts one squaring too late",
+    "file": "src/main.ts",
+    "anchor": "bbs=bbsBits(e.seedState,k.N,8,true)",
+    "replacement": "bbs=bbsBits(e.seedState,k.N,8,false)",
+    "test": "the live BBS and HAC bit sequences have the documented one-state offset"
+  },
+  {
+    "name": "stale decrypt response is rendered after a newer action",
+    "file": "src/main.ts",
+    "anchor": "if(revision!==actionRevision){out.dataset.bgStaleDecryptDiscarded=String(revision);return;}",
+    "replacement": "if(false){out.dataset.bgStaleDecryptDiscarded=String(revision);return;}",
+    "test": "older asynchronous stream actions cannot overwrite newer ciphertext actions"
+  },
+  {
+    "name": "stale final-state response overwrites a newer action",
+    "file": "src/main.ts",
+    "anchor": "if(pendingRevision!==actionRevision){out.dataset.bgStaleFinalStateDiscarded=String(pendingRevision);return;}",
+    "replacement": "if(false){out.dataset.bgStaleFinalStateDiscarded=String(pendingRevision);return;}",
+    "test": "older asynchronous stream actions cannot overwrite newer ciphertext actions"
+  },
+  {
+    "name": "reuse evidence substitutes the first ciphertext for the second",
+    "file": "src/main.ts",
+    "anchor": "data-bg-reuse-c2=\"'+c2+'\"",
+    "replacement": "data-bg-reuse-c2=\"'+c1+'\"",
+    "test": "same-seed control derives the two-time-pad XOR relation from both ciphertexts"
+  },
+  {
+    "name": "retired decrypt rejection overwrites the current result",
+    "file": "src/main.ts",
+    "anchor": "if(t&&(!life.live(t)||revision!==actionRevision)){out.dataset.bgStaleDecryptDiscarded=String(revision);return;}",
+    "replacement": "if(false){out.dataset.bgStaleDecryptDiscarded=String(revision);return;}",
+    "test": "input retirement discards an in-flight non-QR rejection"
+  },
+  {
+    "name": "retired final-state rejection overwrites the current result",
+    "file": "src/main.ts",
+    "anchor": "if(t&&(!life.live(t)||pendingRevision!==actionRevision)){out.dataset.bgStaleFinalStateDiscarded=String(pendingRevision);return;}",
+    "replacement": "if(false){out.dataset.bgStaleFinalStateDiscarded=String(pendingRevision);return;}",
+    "test": "key regeneration discards an in-flight final-state selection"
+  },
+  {
+    "name": "nonvalidity worker errors masquerade as QR validity refusals",
+    "file": "src/main.ts",
+    "anchor": "sourceScenario==='final-invalid'&&bgValidityError(e)&&encEpoch===epoch",
+    "replacement": "sourceScenario==='final-invalid'&&(bgValidityError(e)||true)&&encEpoch===epoch",
+    "test": "an unexpected worker error is not presented as a validity refusal"
+  },
+  {
+    "name": "session retirement leaves sender secrets in the main-thread closure",
+    "file": "src/main.ts",
+    "anchor": "function destroy(){retireBbsSecrets('session');epoch++;",
+    "replacement": "function destroy(){epoch++;",
+    "test": "input and session retirement erase the stored stream scenario"
+  },
+  {
+    "name": "HAC prime requirement is weakened to probable-prime wording",
+    "file": "src/main.ts",
+    "anchor": "HAC Algorithm 8.55 requires two distinct <strong>primes p,q ≡ 3 (mod 4)</strong>",
+    "replacement": "HAC Algorithm 8.55 uses two distinct <strong>probable primes p,q ≡ 3 (mod 4)</strong>",
+    "test": "the stream exhibit states exact assumptions, roles, work and scope"
+  },
+  {
+    "name": "GM and BG security foundations are conflated",
+    "file": "src/main.ts",
+    "anchor": "Goldwasser–Micali semantic security is based on quadratic residuosity; HAC Note 8.58(i) states Blum–Goldwasser semantic security assuming integer factorization is intractable.",
+    "replacement": "Both schemes have the same quadratic-residuosity security foundation.",
+    "test": "the stream exhibit states exact assumptions, roles, work and scope"
+  },
+  {
+    "name": "short final block is presented as a verbatim HAC case",
+    "file": "src/main.ts",
+    "anchor": "This lab’s short final-block support is an explicit teaching adaptation",
+    "replacement": "HAC directly specifies this lab’s short final-block behavior",
+    "test": "the stream exhibit states exact assumptions, roles, work and scope"
+  },
+  {
+    "name": "empty reuse demonstration claims an XOR leak with no ciphertext bits",
+    "file": "src/main.ts",
+    "anchor": "if(!enc.plaintext.length)throw Error('The XOR-leak control needs two non-empty messages. With an empty message there are no ciphertext bits to XOR; only repeated final-state linkability remains visible.');",
+    "replacement": "if(false)throw Error('The XOR-leak control needs two non-empty messages. With an empty message there are no ciphertext bits to XOR; only repeated final-state linkability remains visible.');",
+    "test": "empty messages do not claim a visible two-time-pad XOR leak"
+  },
+  {
+    "name": "disclosure predecessor bypasses the public-only helper with hidden prior state",
+    "file": "src/main.ts",
+    "anchor": "predecessor=orbit?.predecessor??null;",
+    "replacement": "predecessor=enc.states[index-1];",
+    "runner": "unit",
+    "test": "the learner disclosure path accepts only the disclosed state and public modulus"
+  },
+  {
+    "name": "sender-original table is mislabeled as matching a changed wire ciphertext",
+    "file": "src/main.ts",
+    "anchor": "const blocksMatch=cipher.blocks.every((b,i)=>b===enc!.blocks[i])",
+    "replacement": "const blocksMatch=true",
+    "test": "flipping one ciphertext bit flips one plaintext bit and is not detected"
+  },
+  {
+    "name": "worker transport failure is mislabeled as an input refusal",
+    "file": "src/main.ts",
+    "anchor": "if(out.isConnected)setOperationError(out,error);",
+    "replacement": "if(out.isConnected){setOperationError(out,error);setError(out,error);}",
+    "test": "an unexpected worker error is not presented as a validity refusal"
+  },
+  {
+    "name": "reference retirement is overstated as physical memory zeroization",
+    "file": "src/main.ts",
+    "anchor": "JavaScript does not prove memory zeroization.",
+    "replacement": "All secret bytes are physically zeroized.",
+    "test": "input and session retirement erase the stored stream scenario"
+  },
+  {
+    "name": "every immediate return is mislabeled as the fixed point",
+    "file": "src/main.ts",
+    "anchor": "fixedPoint=cycleLength===1&&disclosed===1n",
+    "replacement": "fixedPoint=cycleLength!==null",
+    "test": "manual fixed-point and two-cycle seeds expose the earlier stream without a false classification"
+  },
+  {
+    "name": "worker failure leaves the public session key usable after its private worker is gone",
+    "file": "src/main.ts",
+    "anchor": "retireBbsSecrets('session');epoch++;key=null;const state=",
+    "replacement": "retireBbsSecrets('session');epoch++;const state=",
+    "test": "an unexpected worker error is not presented as a validity refusal"
+  },
+  {
+    "name": "panel navigation retains a detached sender transcript",
+    "file": "src/main.ts",
+    "anchor": "window.addEventListener('lab-retire',()=>clear('panel'),{once:true});",
+    "replacement": "window.addEventListener('not-lab-retire',()=>clear('panel'),{once:true});",
+    "test": "input and session retirement erase the stored stream scenario"
+  },
+  {
+    "name": "empty-message wire evidence renders a header-only table",
+    "file": "src/main.ts",
+    "anchor": "wireRows=cipher.blocks.length?cipher.blocks.map((b,i)=>[i+1,b]):[['—','No ciphertext blocks (empty message)']]",
+    "replacement": "wireRows=cipher.blocks.map((b,i)=>[i+1,b])",
+    "test": "empty messages do not claim a visible two-time-pad XOR leak"
+  },
+  {
+    "name": "equal-prime rejection gives a false QR permutation reason",
+    "file": "src/bbs/bbs.ts",
+    "anchor": "HAC Algorithm 8.55 requires distinct primes p and q: p = q makes N a perfect square whose factor is its public integer square root, and the two-modulus CRT/Bézout construction fails because gcd(p, q) ≠ 1.",
+    "replacement": "HAC Algorithm 8.55 requires distinct primes p and q: p = q makes N a square and squaring is not a permutation of QR_N.",
+    "runner": "unit",
+    "test": "the seed and modulus domain is enforced, each failure naming its condition"
+  },
+  {
+    "name": "late error from a retired worker kills the replacement session",
+    "file": "src/main.ts",
+    "anchor": "active.terminate();if(worker!==active)return;worker=null;",
+    "replacement": "active.terminate();if(false)return;worker=null;",
+    "test": "a late error from a retired worker cannot kill its replacement session"
   }
 ]
