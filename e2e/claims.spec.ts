@@ -87,7 +87,7 @@ test('flipping one ciphertext bit flips one plaintext bit and is not detected',a
  await expect(page.locator('#bg-out')).toContainText(flipped);
  // Exactly one bit differs, and nothing rejected the ciphertext.
  expect([...flipped].filter((c,i)=>c!==message[i]).length).toBe(1);
- await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('nothing to reject with');
+ await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('did not authenticate a sender');
 });
 
 test('final-state validity rejection and accepted valid-residue tampering stay distinct',async({page})=>{
