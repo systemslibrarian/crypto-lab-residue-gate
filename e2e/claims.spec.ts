@@ -79,7 +79,7 @@ test('state disclosure exposes its current block and every later wire block',asy
  await expect(verdictBox).toContainText('fresh uniformly sampled start at cryptographic sizes');
 });
 
-test('manual fixed-point seeds expose the entire earlier stream rather than receiving a backward-security claim',async({page})=>{
+test('manual fixed-point and two-cycle seeds expose the earlier stream without a false classification',async({page})=>{
  for(const seed of ['1','436']){
   const message='1001110000010000';await stream(page,message,seed);
   await page.getByRole('button',{name:'Disclose x₂'}).click();
@@ -90,6 +90,14 @@ test('manual fixed-point seeds expose the entire earlier stream rather than rece
   await expect(page.locator('[data-verdict=bg-disclosed]')).toContainText('manual seed entered a public fixed point');
   await expect(page.locator('[data-verdict=bg-disclosed]')).not.toContainText('not recovered by this bounded check');
  }
+ const message='1001110000010000';await stream(page,message,'45');
+ await page.getByRole('button',{name:'Disclose x₂'}).click();
+ const twoCycle=page.locator('[data-bg-disclosed]');
+ await expect(twoCycle).toHaveAttribute('data-bg-disclosed','277');
+ await expect(twoCycle).toHaveAttribute('data-bg-cycle-steps','0');
+ await expect(twoCycle).toHaveAttribute('data-bg-disclosure-all',message);
+ await expect(page.locator('[data-verdict=bg-disclosed]')).toContainText('public two-state cycle');
+ await expect(page.locator('[data-verdict=bg-disclosed]')).not.toContainText('public fixed point');
 });
 
 test('flipping one ciphertext bit flips one plaintext bit and is not detected',async({page})=>{

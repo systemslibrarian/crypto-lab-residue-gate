@@ -214,7 +214,7 @@
     "file": "src/main.ts",
     "anchor": "let cycleSteps:number|null=disclosed===enc.seedState?0:null;",
     "replacement": "let cycleSteps:number|null=null;",
-    "test": "manual fixed-point seeds expose the entire earlier stream rather than receiving a backward-security claim"
+    "test": "manual fixed-point and two-cycle seeds expose the earlier stream without a false classification"
   },
   {
     "name": "sender-original table is mislabeled as matching a changed wire ciphertext",
@@ -236,5 +236,12 @@
     "anchor": "JavaScript does not prove memory zeroization.",
     "replacement": "All secret bytes are physically zeroized.",
     "test": "input and session retirement erase the stored stream scenario"
+  },
+  {
+    "name": "every immediate return is mislabeled as the fixed point",
+    "file": "src/main.ts",
+    "anchor": "fixedPoint=cycleSteps===0&&disclosed===1n",
+    "replacement": "fixedPoint=cycleSteps===0",
+    "test": "manual fixed-point and two-cycle seeds expose the earlier stream without a false classification"
   }
 ]
