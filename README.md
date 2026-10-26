@@ -4,7 +4,7 @@ Quadratic residues · Goldwasser–Micali · Rabin · Blum–Goldwasser · chose
 
 ## What It Is
 
-A browser-only laboratory for the gap between a public Jacobi symbol and private quadratic residuosity. Square actual numbers, encrypt bits, recover four Rabin roots, factor a modulus through a deliberately vulnerable root oracle, and run the Blum–Goldwasser stream whose state chain goes forward for anyone and backward only for the factor holder.
+A browser-only laboratory for the gap between a public Jacobi symbol and private quadratic residuosity. Square actual numbers, encrypt bits, recover four Rabin roots, factor a modulus through a deliberately vulnerable root oracle, and run the Blum–Goldwasser stream. Anyone can advance that stream; efficient predecessor recovery is assumed hard at cryptographic sizes without the factors, while the lab’s deliberately tiny orbit is explicitly shown to cycle.
 
 Built to the [Crypto Lab master template](https://github.com/systemslibrarian/crypto-lab/blob/main/audits/_MASTER-TEMPLATE.md); the original brief is included. Shared UI and accessibility machinery derives from MIT-licensed Crypto Lab siblings by Paul Clark.
 
@@ -15,7 +15,7 @@ Built to the [Crypto Lab master template](https://github.com/systemslibrarian/cr
 3. Real randomized Goldwasser–Micali encryption, repeated ciphertexts, and public XOR malleability.
 4. All four Rabin roots, canonical selection, redundant encoding, and randomized one-bit Rabin.
 5. A root-oracle attack receiving only N and one answer. A recovered factor is independently multiplied back and can decrypt earlier GM ciphertexts under the deliberately shared session modulus.
-6. The Blum–Blum–Shub `x² mod N` generator and Blum–Goldwasser encryption: a real state chain, the emitted keystream blocks, the transmitted final state, and the factor-assisted rewind that recovers the seed state in one exponentiation per prime. State disclosure, ciphertext-bit tampering and final-state tampering are each demonstrated with the consequence the construction actually has.
+6. The Blum–Blum–Shub `x² mod N` generator and Blum–Goldwasser encryption: a real state chain, live BBS/HAC indexing comparison, fresh rejection-sampled coins by default, emitted keystream blocks, transmitted final state, and the factor-assisted rewind. The rewind derives two exponents and applies them with two more modular exponentiations, as counted by HAC Note 8.59. State disclosure, seed reuse, ciphertext-bit tampering, rejected non-residue final states and accepted altered-residue final states are each demonstrated from the current run.
 
 ## When to Use It
 
@@ -34,7 +34,10 @@ Teach why public Jacobi +1 is insufficient to classify squares, and why one-wayn
 - Plain deterministic Rabin, randomized one-bit Rabin, and CCA-secure encryption have distinct guarantees.
 - The private factors remain in the session worker/closure. The attacker module cannot import them. The trusted educational root panel deliberately shows information the attack interface does not receive.
 - Blum–Goldwasser is a stream cipher with **no authentication**. Flipping a ciphertext bit flips exactly that plaintext bit and nothing rejects it, because the scheme has nothing to reject with. HAC Note 8.58(iii) records that it also falls to a chosen-ciphertext attack, as Rabin does.
-- Disclosing an internal generator state hands over **every later** keystream block to anyone holding N, and **nothing earlier**. Blum, Blum and Shub §7 claim 1 gives the first; claim 2 gives the second, because running the chain backward is exactly what needs the factors. The page states that boundary rather than implying state exposure reveals the past.
+- Encryption normally samples a fresh uniform unit `r` by rejection and does not transmit it; the manual seed is a labelled reproducibility override. Reusing `r` repeats the stream and final state, so the executable negative control derives `c XOR c′ = m XOR m′` from two actual encryptions.
+- Disclosing an internal generator state hands over **its current output block and every subsequent block** to anyone holding N. Exact predecessor recovery is a computational assumption at cryptographic sizes, not an information-theoretic promise. In the pinned `N = 437, r = 5` fixture, the orbit publicly returns from `x₂` to `x₀` after 28 forward squarings, so the page makes no backward-protection claim for that toy run.
+- The original 1984 Blum–Goldwasser presentation requires `p,q ≡ 7 (mod 8)`. This lab implements HAC Algorithms 8.55–8.56, which require distinct probable primes `p,q ≡ 3 (mod 4)`, and names that difference in the learner view.
+- The implementation refuses a final state outside `QR_N`; that is a ciphertext-validity guard, not sender authentication. A separate control substitutes a different valid quadratic residue and passes the guard; the learner view reports the plaintext actually recovered, and the pinned toy case changes it.
 - The three published descriptions of this generator **do not share an indexing convention**, and they differ by one squaring. Experiment 6 runs HAC Algorithm 8.56 and says so on the page; BBS 1986 and Blum–Goldwasser 1984 each emit their first bit one state earlier.
 - Bits that look random are not evidence of pseudorandomness, and this lab runs no statistical test that could be mistaken for a proof.
 - Experiment 6 is **not** BBS credential signing or any BBS+ signature scheme. The initials collide; the constructions are unrelated.
@@ -71,9 +74,9 @@ npm run test:e2e
 npm run test:mutations
 ```
 
-The local run passes 33 unit tests, including fresh 2048-bit key generation, exhaustive toy roots and oracle outcomes, GM round trips, module-boundary checks, and the two published Blum–Goldwasser and BBS worked examples reproduced down to every intermediate. No coverage percentage is claimed. Browser claims rederive roots, gcd factors, generator states and keystream blocks from displayed data using arithmetic written in the test file. Fourteen concrete mutations must build, change bundle bytes, fail a named previously passing test, restore exactly, and pass again.
+The suite contains 38 unit tests, including fresh 2048-bit key generation, exhaustive toy roots and oracle outcomes, GM round trips, module-boundary checks, deterministic testing of the rejection sampler, malformed-ciphertext guards, and the two published Blum–Goldwasser and BBS worked examples reproduced down to every intermediate. No coverage percentage is claimed. Seventeen browser claims rederive roots, gcd factors, generator states, keystream blocks, the seed-reuse relation, disclosure boundary and BBS/HAC indexing from displayed data using arithmetic written in the test file. Nineteen concrete mutations must build, change bundle bytes, fail a named previously passing test, restore exactly, and pass again.
 
-Production-build accessibility scans run at 1280 and 320 pixels through real success, refusal and disclosure controls. The fleet's contrast and non-text oracles are preserved; no failed rule is disabled. Browser checks run in CI when no supported local browser-control surface is available.
+Production-build accessibility scans run at 1280 and 320 pixels through real success, reuse, disclosure, ciphertext tampering, non-residue refusal, accepted altered-residue and invalid-seed controls. The fleet's contrast and non-text oracles are preserved; no failed rule is disabled. Browser checks run in CI when no supported local browser-control surface is available.
 
 The Actions workflow gates Pages deployment and Dependabot auto-merge on the entire suite, handles PRs and manual dispatch, and dispatches deployment after an automated merge.
 

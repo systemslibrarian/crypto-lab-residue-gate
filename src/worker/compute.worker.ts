@@ -9,6 +9,7 @@ self.onmessage=({data})=>{const {id,name,args}=data;try{if(name==='keygen'){orac
  else if(name==='bginfo')result=oracle.bgInfo();
  else if(name==='bgdecrypt')result=oracle.bgDecrypt({blocks:(args.blocks as string[]),finalState:BigInt(args.finalState as string),bitLength:Number(args.bitLength)});
  else if(name==='bgprevious')result=oracle.bgPrevious(BigInt(args.x as string));
+ else if(name==='bgtamperstates')result=oracle.bgTamperStates(BigInt(args.x as string));
  else if(name==='attack'){const r=attack(N,BigInt(args.x),c=>oracle!.query(c,args.rule,Number(args.k)));result={...r,recoveredPlain:r.factor&&verifyFactor(N,r.factor)?oracle.recoveredDecrypt(lastCipher,r.factor):null};}
  else if(name==='batch'){const count=Number(args.count);if(count<1||count>500)throw Error('Batch size 1–500');const rows=[];for(let i=0;i<count;i++)rows.push(attack(N,unit(N),c=>oracle!.query(c,args.rule,Number(args.k))));result=rows;}
  else throw Error('Unknown operation');self.postMessage({id,result});

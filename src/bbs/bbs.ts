@@ -29,7 +29,7 @@
 // NOT a BBS credential or BBS+ signature scheme: the initials collide, the
 // constructions are unrelated. NOT authenticated and NOT CCA-secure (HAC Note
 // 8.58(iii)). Toy moduli are breakable by construction.
-import {gcd, mod, pow} from '../nt/bigint';
+import {below, gcd, mod, pow, systemRandom, type Fill} from '../nt/bigint';
 import {legendre} from '../nt/legendre';
 import {crt, inverse} from '../nt/sqrt';
 import {probablePrime} from '../nt/primes';
@@ -72,6 +72,15 @@ export function validateSeed(r: bigint, n: bigint): void {
  if (r <= 0n || r >= n) throw Error('Seed r must satisfy 0 < r < n.');
  const g = gcd(r, n);
  if (g !== 1n) throw Error('Seed is not a unit: gcd(r, n) = ' + g + ', which already factors n.');
+}
+
+/** HAC 8.56 step 1(c): sample a fresh uniform unit r from Z_n^* by rejection. */
+export function sampleSeed(n: bigint, fill: Fill = systemRandom): bigint {
+ if (n < 2n) throw Error('Seed range is empty; use n ≥ 2.');
+ for (;;) {
+  const r = 1n + below(n - 1n, fill);
+  if (gcd(r, n) === 1n) return r;
+ }
 }
 
 /** x_0 = r² mod n. The SEED STATE, a quadratic residue; r is the PRE-SQUARE value. */
@@ -170,7 +179,9 @@ export function previousState(x: bigint, p: bigint, q: bigint): bigint {
 }
 
 /**
- * HAC 8.56 step 2(a)–(e): rewind `steps` squarings in ONE exponentiation per prime.
+ * HAC 8.56 step 2(a)–(e): rewind `steps` squarings. This performs four modular
+ * exponentiations: one exponent derivation modulo p−1 and q−1, then one
+ * final-state exponentiation modulo p and q (HAC Note 8.59(iii)).
  *
  * d1 = ((p+1)/4)^steps mod (p−1), d2 = ((q+1)/4)^steps mod (q−1),
  * u = x^d1 mod p, v = x^d2 mod q, result = v·a·p + u·b·q mod n.
@@ -198,6 +209,7 @@ export function decryptBG(cipher: BGCiphertext, key: BlumKey): {plaintext: strin
  const {h} = blockSizes(key.n);
  const t = blocks.length;
  if (bitLength < 0 || bitLength > t * h || (t > 0 && bitLength <= (t - 1) * h)) throw Error('Ciphertext bit length does not match its block count.');
+ if (!blocks.every((block, i) => /^[01]+$/.test(block) && block.length === (i === t - 1 ? bitLength - h * (t - 1) : h))) throw Error('Ciphertext blocks are not binary strings with the declared widths.');
  const {x0} = rewind(finalState, key, t + 1);
  const {states, keystream} = keystreamFrom(x0, key.n, t);
  const plaintext = blocks.map((block, i) => [...block].map((bit, j) => String(Number(bit) ^ Number(keystream[i][j]))).join('')).join('');

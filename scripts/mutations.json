@@ -91,10 +91,45 @@
     "test": "flipping one ciphertext bit flips one plaintext bit"
   },
   {
-    "name": "state-disclosure claim overstated",
+    "name": "state disclosure skips its current block",
     "file": "src/main.ts",
-    "anchor": "the factors are necessary and sufficient to run it backward",
-    "replacement": "a disclosed state also reveals everything that came before it",
-    "test": "state disclosure gives future output only"
+    "anchor": "wireBlocks=cipher.blocks.slice(index),",
+    "replacement": "wireBlocks=cipher.blocks.slice(index+1),",
+    "test": "state disclosure exposes its current block and every later wire block"
+  },
+  {
+    "name": "fresh-random default silently becomes fixed manual coins",
+    "file": "src/main.ts",
+    "anchor": "usedFreshCoins=seedMode.value==='fresh';",
+    "replacement": "usedFreshCoins=false;",
+    "test": "fresh coins are the default while manual coins are an explicit override"
+  },
+  {
+    "name": "repeated tamper action toggles back to the original ciphertext",
+    "file": "src/main.ts",
+    "anchor": "cipher=flipCipherBit(originalCipher(enc),0,0);",
+    "replacement": "cipher=flipCipherBit(cipher??originalCipher(enc),0,0);",
+    "test": "flipping one ciphertext bit flips one plaintext bit and is not detected"
+  },
+  {
+    "name": "input retirement keeps an old stream scenario alive",
+    "file": "src/main.ts",
+    "anchor": "const life=bindRetirement(panel,out,clear),seedMode=",
+    "replacement": "const life=bindRetirement(panel,out),seedMode=",
+    "test": "input and session retirement erase the stored stream scenario"
+  },
+  {
+    "name": "altered valid-residue control substitutes the rejected state",
+    "file": "src/main.ts",
+    "anchor": "finalState:kind==='rejected'?states.rejected:states.accepted",
+    "replacement": "finalState:kind==='rejected'?states.rejected:states.rejected",
+    "test": "final-state validity rejection and accepted valid-residue tampering stay distinct"
+  },
+  {
+    "name": "BBS comparison starts one squaring too late",
+    "file": "src/main.ts",
+    "anchor": "bbs=bbsBits(e.seedState,k.N,8,true)",
+    "replacement": "bbs=bbsBits(e.seedState,k.N,8,false)",
+    "test": "the live BBS and HAC bit sequences have the documented one-state offset"
   }
 ]

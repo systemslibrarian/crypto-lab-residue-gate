@@ -15,6 +15,7 @@ export function createOracle(p:bigint,q:bigint){
  bgDecrypt:(cipher:BGCiphertext)=>decryptBG(cipher,bgKey()),
  bgPrevious:(x:bigint)=>previousState(x,p,q),
  bgInfo:()=>({...blockSizes(N),sevenMod8:bgKey().sevenMod8}),
+ bgTamperStates:(x:bigint)=>{let rejected:bigint|null=null,accepted:bigint|null=null;for(let delta=1n;delta<=4096n&&(rejected===null||accepted===null);delta++){const y=(x+delta)%N;if(y===x)continue;const qr=gcd(y,N)===1n&&jacobi(y,p)===1&&jacobi(y,q)===1;if(qr)accepted??=y;else rejected??=y;}if(rejected===null||accepted===null)throw Error('Could not find both final-state teaching controls within the bounded search.');return {rejected,accepted};},
 
  canonicalEncrypt:(m:bigint)=>{validateUnit(m,N);if(jacobi(m,p)!==1||jacobi(m,q)!==1)throw Error('Canonical messages must lie in QR_N.');return m*m%N;},
  redundancyEncrypt:(payload:bigint,k:number)=>{const m=encodeRedundancy(payload,k,N);return {m,c:m*m%N};},

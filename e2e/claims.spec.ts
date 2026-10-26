@@ -17,8 +17,8 @@ const refSquare=(x:bigint,n:bigint):bigint=>x*x%n;
 function refChain(seed:bigint,n:bigint,count:number):bigint[]{const out:bigint[]=[];let x=refSquare(seed,n);for(let i=0;i<count;i++){x=refSquare(x,n);out.push(x);}return out;}
 function refLow(x:bigint,h:number):string{let s='';for(let b=h-1;b>=0;b--)s+=String((x>>BigInt(b))&1n);return s;}
 function refXor(a:string,b:string):string{return [...a].map((c,i)=>String(Number(c)^Number(b[i]))).join('');}
-async function stream(page:Page,bits='1001110000010000',seed='5'){await toy(page);await page.getByRole('tab',{name:/Rewind the stream/}).click();await page.locator('#bg-bits').fill(bits);await page.locator('#bg-seed').fill(seed);await page.getByRole('button',{name:'Encrypt',exact:true}).click();await expect(page.locator('[data-bg-final]')).toBeAttached();}
-async function teachingRows(page:Page){return Promise.all((await page.locator('#bg-out .table-wrap').last().locator('tbody tr').all()).map(async r=>r.locator('td').allTextContents()));}
+async function stream(page:Page,bits='1001110000010000',seed='5'){await toy(page);await page.getByRole('tab',{name:/Rewind the stream/}).click();await page.locator('#bg-seed-mode').selectOption('manual');await page.locator('#bg-bits').fill(bits);await page.locator('#bg-seed').fill(seed);await page.getByRole('button',{name:'Encrypt',exact:true}).click();await expect(page.locator('[data-bg-final]')).toBeAttached();}
+async function teachingRows(page:Page){return Promise.all((await page.getByRole('region',{name:'Sender state-chain calculation'}).locator('tbody tr').all()).map(async r=>r.locator('td').allTextContents()));}
 
 test('BBS stream encrypt matches an independent chain and block extraction',async({page})=>{
  const message='1001110000010000';await stream(page,message,'5');
@@ -55,30 +55,34 @@ test('the factors rewind the transmitted state back to the seed state',async({pa
  expect(metrics.some(m=>m.includes(String(refSquare(5n,N))))).toBe(true);
 });
 
-test('state disclosure gives future output only and says so',async({page})=>{
+test('state disclosure exposes its current block and every later wire block',async({page})=>{
  const message='1001110000010000';await stream(page,message,'5');
  const N=BigInt((await page.locator('[data-key-N]').getAttribute('data-key-N'))!);const h=3;
- await page.getByRole('button',{name:'Disclose a state'}).click();
+ await page.getByRole('button',{name:'Disclose x₂'}).click();
  const verdictBox=page.locator('[data-verdict=bg-disclosed]');
- await expect(verdictBox).toContainText('FUTURE OUTPUT IS GONE — THE PAST IS NOT');
- // Recompute what a public forward walk from x_2 actually yields.
- const chain=refChain(5n,N,Math.ceil(message.length/h));
- const futureKeys=chain.slice(2).map(x=>refLow(x,h));
- const expected=message.slice(2*h);
- const recovered=futureKeys.map((k,i)=>{const piece=expected.slice(i*h,(i+1)*h);return refXor(piece,k.slice(0,piece.length));}).map((c,i)=>refXor(c,futureKeys[i].slice(0,c.length))).join('');
- expect(recovered).toBe(expected);
- await expect(page.locator('#bg-out')).toContainText(expected);
- // The claim is bounded: earlier bits are NOT recovered this way.
- await expect(page.locator('#bg-out')).toContainText('Earlier bits recovered this way');
- await expect(verdictBox).toContainText('the factors are necessary and sufficient to run it backward');
+ await expect(verdictBox).toContainText('CURRENT AND SUBSEQUENT OUTPUT IS EXPOSED');
+ const disclosure=page.locator('[data-bg-disclosed]');
+ const disclosed=BigInt((await disclosure.getAttribute('data-bg-disclosed'))!);
+ const first=Number(await disclosure.getAttribute('data-bg-disclosure-first'));
+ expect(first).toBe(2);
+ const rows=await page.getByRole('region',{name:'Transmitted ciphertext blocks'}).locator('tbody tr td:last-child').allTextContents();
+ const blocks=rows.slice(first-1);
+ const keys:string[]=[];let x=disclosed;
+ for(let i=0;i<blocks.length;i++){keys.push(refLow(x,h));x=refSquare(x,N);}
+ const recovered=blocks.map((b,i)=>refXor(b,keys[i].slice(0,b.length))).join('');
+ expect(recovered).toBe(message.slice(h));
+ expect(await disclosure.getAttribute('data-bg-disclosure-recovered')).toBe(recovered);
+ await expect(disclosure).toHaveAttribute('data-bg-cycle',/28 forward squarings/);
+ await expect(verdictBox).toContainText('not an information-theoretic promise');
 });
 
 test('flipping one ciphertext bit flips one plaintext bit and is not detected',async({page})=>{
  const message='1001110000010000';await stream(page,message,'5');
- await page.getByRole('button',{name:'Flip one ciphertext bit'}).click();
+ await page.getByRole('button',{name:'Apply one-bit mutation'}).click();
+ await page.getByRole('button',{name:'Apply one-bit mutation'}).click(); // idempotent scenario, not a toggle
  await expect(page.locator('[data-verdict=bg-tampered]')).toContainText('no authentication');
  await page.getByRole('button',{name:'Decrypt with the factors'}).click();
- await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('DECRYPTED TO SOMETHING ELSE');
+ await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('DECRYPTED TO A CHANGED MESSAGE');
  const flipped=String(1-Number(message[0]))+message.slice(1);
  await expect(page.locator('#bg-out')).toContainText(flipped);
  // Exactly one bit differs, and nothing rejected the ciphertext.
@@ -86,15 +90,17 @@ test('flipping one ciphertext bit flips one plaintext bit and is not detected',a
  await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('nothing to reject with');
 });
 
-test('tampering the transmitted final state is shown, never dressed up as detection',async({page})=>{
+test('final-state validity rejection and accepted valid-residue tampering stay distinct',async({page})=>{
  await stream(page,'1001110000010000','5');
- await page.getByRole('button',{name:'Tamper the final state'}).click();
- await expect(page.locator('[data-verdict=bg-tampered]')).toContainText('neither is a detection');
+ await page.getByRole('button',{name:'Use a non-QR final state'}).click();
+ await expect(page.locator('[data-bg-final]')).toHaveAttribute('data-bg-final','37');
  await page.getByRole('button',{name:'Decrypt with the factors'}).click();
- const body=await page.locator('#bg-out').textContent();
- // Either the rewind refuses (not a residue) or it lands elsewhere and prints garbage.
- expect(/not a quadratic residue|DECRYPTED TO SOMETHING ELSE|Input refused/.test(body??'')).toBe(true);
- expect(body??'').not.toContain('DECRYPTED — the rewind landed on x₀');
+ await expect(page.locator('[data-verdict=bg-validity-refusal]')).toContainText('not sender authentication');
+ await page.getByRole('button',{name:'Use an altered valid-QR final state'}).click();
+ await expect(page.locator('[data-bg-final]')).toHaveAttribute('data-bg-final','39');
+ await page.getByRole('button',{name:'Decrypt with the factors'}).click();
+ await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('DECRYPTED TO A CHANGED MESSAGE');
+ await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('did not authenticate a sender');
 });
 
 test('an invalid seed is refused by name and retires the stream result',async({page})=>{
@@ -108,13 +114,71 @@ test('an invalid seed is refused by name and retires the stream result',async({p
  await expect(page.locator('#bg-out')).toContainText('0 < r < n');
 });
 
-test('the stream exhibit states the indexing it runs and refuses the BBS signature confusion',async({page})=>{
+test('the stream exhibit states exact assumptions, roles, work and scope',async({page})=>{
  await toy(page);await page.getByRole('tab',{name:/Rewind the stream/}).click();
  const panel=page.locator('#panel');
  await expect(panel).toContainText('HAC Algorithm 8.56');
  await expect(panel).toContainText('emits nothing');
- await expect(panel).toContainText('BBS 1986 §4 instead emits');
+ await expect(panel).toContainText('BBS 1986 §4');
+ await expect(panel).toContainText('p,q ≡ 3 (mod 4)');
+ await expect(panel).toContainText('p,q ≡ 7 (mod 8)');
+ await expect(panel).toContainText('fresh uniform');
+ await expect(panel).toContainText('does not transmit r');
  await expect(panel).toContainText('not BBS credential signing');
  await expect(panel).toContainText('unauthenticated and malleable');
  await expect(panel).toContainText('not evidence of pseudorandomness');
+ await stream(page,'1001110000010000','5');
+ await expect(page.getByRole('heading',{name:'Sender teaching view — private state is not transmitted'})).toBeVisible();
+ await page.getByRole('button',{name:'Decrypt with the factors'}).click();
+ await expect(page.locator('[data-verdict=bg-decrypt]')).toContainText('four modular exponentiations');
+ await expect(page.locator('#bg-out')).toContainText('does not recover or need this particular pre-square root r');
+});
+
+test('fresh coins are the default while manual coins are an explicit override',async({page})=>{
+ await toy(page);await page.getByRole('tab',{name:/Rewind the stream/}).click();
+ await expect(page.locator('#bg-seed-mode')).toHaveValue('fresh');
+ await expect(page.locator('#bg-seed')).toBeDisabled();
+ await page.getByRole('button',{name:'Encrypt',exact:true}).click();
+ const seedNode=page.locator('[data-bg-seed]');
+ await expect(seedNode).toHaveAttribute('data-bg-seed-mode','fresh');
+ const seed=BigInt((await seedNode.getAttribute('data-bg-seed'))!);
+ expect(seed).toBeGreaterThan(0n);expect(seed).toBeLessThan(437n);expect(gcd(seed,437n)).toBe(1n);
+});
+
+test('same-seed control derives the two-time-pad XOR relation from both ciphertexts',async({page})=>{
+ await stream(page,'1001110000010000','5');
+ await page.getByRole('button',{name:'Show same-seed leak'}).click();
+ const row=page.locator('[data-bg-reuse-cxor]');
+ const c=await row.getAttribute('data-bg-reuse-cxor'),m=await row.getAttribute('data-bg-reuse-pxor');
+ expect(c).toBe(m);expect(c).toBe('1111111111111111');
+ await expect(page.locator('[data-verdict=bg-reuse]')).toContainText('Fresh randomness is part of probabilistic encryption');
+});
+
+test('the live BBS and HAC bit sequences have the documented one-state offset',async({page})=>{
+ await stream(page,'1001110000010000','5');
+ const N=437n,x0=25n,rows=await page.getByRole('region',{name:'BBS indexing comparison'}).locator('tbody tr').all();
+ expect(rows).toHaveLength(2);
+ const text=await Promise.all(rows.map(r=>r.locator('td').allTextContents()));
+ let x=x0,bbs='';for(let i=0;i<8;i++){bbs+=String(x&1n);x=refSquare(x,N);}
+ x=x0;let hac='';for(let i=0;i<8;i++){x=refSquare(x,N);hac+=String(x&1n);}
+ expect(text[0]).toEqual(['BBS 1986 §4','x₀',bbs]);
+ expect(text[1]).toEqual(['HAC 5.40','x₁',hac]);
+ expect(bbs.slice(1)).toBe(hac.slice(0,7));
+});
+
+test('input and session retirement erase the stored stream scenario',async({page})=>{
+ for(const action of ['Decrypt with the factors','Show same-seed leak','Disclose x₂','Apply one-bit mutation','Use a non-QR final state','Use an altered valid-QR final state']){
+  await stream(page,'1001110000010000','5');
+  await page.locator('#bg-bits').fill('1001110000010001');
+  await expect(page.locator('#bg-out')).toContainText('Retired: inputs changed');
+  await page.getByRole('button',{name:action,exact:true}).click();
+  await expect(page.locator('[data-bg-final]')).toHaveCount(0);
+  await expect(page.locator('#bg-out')).toContainText('Encrypt a message first');
+ }
+ await stream(page,'1001110000010000','5');
+ await page.getByRole('button',{name:'Generate session key',exact:true}).click();
+ await expect(page.locator('[data-key-N]')).toBeVisible();
+ await page.getByRole('button',{name:'Decrypt with the factors'}).click();
+ await expect(page.locator('[data-bg-final]')).toHaveCount(0);
+ await expect(page.locator('#bg-out')).toContainText(/session key changed|Encrypt a message first/);
 });

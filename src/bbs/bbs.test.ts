@@ -1,6 +1,6 @@
 import {it, expect} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {bbsBits, blockSizes, decryptBG, encryptBG, extractBlock, flipCipherBit, keystreamFrom, makeBlumKey, previousState, rewind, seedState, validateSeed} from './bbs';
+import {bbsBits, blockSizes, decryptBG, encryptBG, extractBlock, flipCipherBit, keystreamFrom, makeBlumKey, previousState, rewind, sampleSeed, seedState, validateSeed} from './bbs';
 
 // ---------------------------------------------------------------------------
 // An INDEPENDENT reference implementation. It shares no code with src/: its own
@@ -198,6 +198,17 @@ it('the seed and modulus domain is enforced, each failure naming its condition',
  expect(() => blockSizes(15n)).toThrow('too small');
 });
 
+it('fresh sender coins are rejection-sampled from the units with injectable randomness', () => {
+ const draws = [[0, 18], [0, 4]]; // r=19 is rejected for n=437; r=5 is accepted.
+ let calls = 0;
+ const fill = (bytes: Uint8Array<ArrayBuffer>): void => {
+  bytes.set(draws[calls++]);
+ };
+ expect(sampleSeed(437n, fill)).toBe(5n);
+ expect(calls).toBe(2);
+ expect(() => sampleSeed(1n, fill)).toThrow('range is empty');
+});
+
 it('the 1984 paper’s stronger 7 mod 8 condition is reported, not imposed', () => {
  // 19 ≡ 3 (mod 8) and 23 ≡ 7 (mod 8): a valid HAC key that is NOT a 1984-paper key.
  const mixed = makeBlumKey(19n, 23n);
@@ -241,7 +252,7 @@ it('flipping a ciphertext bit flips exactly that plaintext bit, with no detectio
  expect(() => flipCipherBit(enc, 0, 99)).toThrow('Bit index');
 });
 
-it('altering the transmitted final state corrupts the whole message or is refused', () => {
+it('altering the transmitted final state changes the recovered message or is refused', () => {
  const key = makeBlumKey(499n, 547n);
  const plaintext = '1001110000010000';
  const enc = encryptBG(key.n, plaintext, 399n);
@@ -251,8 +262,8 @@ it('altering the transmitted final state corrupts the whole message or is refuse
   try {
    const out = decryptBG(tampered, key);
    corrupted++;
-   // When the altered state happens to be a residue, the result is garbage and is
-   // shown as garbage. It must not coincide with the real plaintext.
+   // When the altered state happens to be a residue, the recovered message changes.
+   // The construction does not authenticate which sender produced it.
    expect(out.plaintext).not.toBe(plaintext);
    expect(out.seedState).not.toBe(enc.seedState);
   } catch (e) {
@@ -263,6 +274,23 @@ it('altering the transmitted final state corrupts the whole message or is refuse
  // Both outcomes are real at this size; the exhibit shows whichever occurs.
  expect(refused).toBeGreaterThan(0);
  expect(corrupted).toBeGreaterThan(0);
+});
+
+it('the validity guard rejects non-residues but accepts an altered valid residue without authenticating it', () => {
+ const key = makeBlumKey(19n, 23n);
+ const plaintext = '1001110000010000';
+ const enc = encryptBG(key.n, plaintext, 5n);
+ expect(enc.finalState).toBe(36n);
+ expect(() => decryptBG({...enc, finalState: 37n}, key)).toThrow('not a quadratic residue');
+ const accepted = decryptBG({...enc, finalState: 39n}, key);
+ expect(accepted.plaintext).not.toBe(plaintext);
+});
+
+it('malformed binary blocks and declared widths are refused', () => {
+ const key = makeBlumKey(19n, 23n);
+ const enc = encryptBG(key.n, '1001110', 5n);
+ expect(() => decryptBG({...enc, blocks: ['10x', ...enc.blocks.slice(1)]}, key)).toThrow('binary strings');
+ expect(() => decryptBG({...enc, blocks: ['10', ...enc.blocks.slice(1)]}, key)).toThrow('declared widths');
 });
 
 it('the wrong factors decrypt to garbage rather than to the message', () => {
@@ -281,20 +309,31 @@ it('the wrong factors decrypt to garbage rather than to the message', () => {
 // The claim the lesson is allowed to make about state disclosure.
 // ---------------------------------------------------------------------------
 
-it('a disclosed state yields every FUTURE block from n alone, and no past block', () => {
+it('a disclosed state yields its CURRENT block and every later block from n alone', () => {
  const key = makeBlumKey(499n, 547n);
  const enc = encryptBG(key.n, '1001110000010000110010', 399n);
- // BBS Claim 1: forward needs only n. Disclose x_2 and regenerate blocks 3 onward.
+ // Disclose x_2. Its own low bits are p_2; public forward squaring gives p_3 onward.
  const disclosed = enc.states[1];
  const forward = keystreamFrom(disclosed, key.n, enc.blocks.length - 2);
+ const exposed = [extractBlock(disclosed, blockSizes(key.n).h), ...forward.keystream];
+ expect(exposed).toEqual(enc.keystream.slice(1));
  expect(forward.keystream).toEqual(enc.keystream.slice(2));
  expect(forward.states).toEqual(enc.states.slice(2));
- // BBS Claim 2: backward needs the factors. With them, the earlier states return.
+ // With the factors, the exact predecessor states return efficiently.
  expect(previousState(disclosed, key.p, key.q)).toBe(enc.states[0]);
  expect(previousState(enc.states[0], key.p, key.q)).toBe(enc.seedState);
- // The public forward walk never reproduces an earlier state of this chain.
- expect(forward.states).not.toContain(enc.states[0]);
- expect(forward.states).not.toContain(enc.seedState);
+});
+
+it('the toy orbit cycles back publicly, so it promises no backward protection', () => {
+ const key = makeBlumKey(19n, 23n);
+ const enc = encryptBG(key.n, '1001110000010000', 5n);
+ const disclosed = enc.states[1]; // x_2 = 384
+ expect(disclosed).toBe(384n);
+ let x = disclosed;
+ for (let i = 0; i < 28; i++) x = x * x % key.n;
+ expect(x).toBe(enc.seedState); // x_0 appears again after 28 public steps.
+ x = x * x % key.n;
+ expect(x).toBe(enc.states[0]); // then x_1.
 });
 
 it('module boundaries keep the private factors out of the public generator path', () => {
