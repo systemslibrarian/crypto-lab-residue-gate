@@ -44,8 +44,8 @@
   {
     "name": "repeated-squaring transition",
     "file": "src/bbs/bbs.ts",
-    "anchor": "  x = x * x % n;",
-    "replacement": "  x = x * x * x % n;",
+    "anchor": " for (let i = 1; i <= t; i++) {\n  x = x * x % n;\n  states.push(x);",
+    "replacement": " for (let i = 1; i <= t; i++) {\n  x = x * x * x % n;\n  states.push(x);",
     "test": "BBS stream encrypt matches an independent chain"
   },
   {
@@ -210,11 +210,12 @@
     "test": "empty messages do not claim a visible two-time-pad XOR leak"
   },
   {
-    "name": "disclosure predecessor secretly uses the sender-only seed state",
+    "name": "disclosure predecessor bypasses the public-only helper with hidden prior state",
     "file": "src/main.ts",
-    "anchor": "predecessor=before;break;",
-    "replacement": "predecessor=enc.seedState+0n*before;break;",
-    "test": "state disclosure exposes its current block and every later wire block"
+    "anchor": "predecessor=orbit?.predecessor??null;",
+    "replacement": "predecessor=enc.states[index-1];",
+    "runner": "unit",
+    "test": "the learner disclosure path accepts only the disclosed state and public modulus"
   },
   {
     "name": "sender-original table is mislabeled as matching a changed wire ciphertext",

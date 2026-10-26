@@ -1,6 +1,6 @@
 import {it, expect} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {bbsBits, blockSizes, decryptBG, encryptBG, extractBlock, flipCipherBit, keystreamFrom, makeBlumKey, previousState, rewind, sampleSeed, seedState, validateSeed} from './bbs';
+import {bbsBits, blockSizes, decryptBG, encryptBG, extractBlock, flipCipherBit, keystreamFrom, makeBlumKey, previousState, publicCyclePredecessor, rewind, sampleSeed, seedState, validateSeed} from './bbs';
 
 // ---------------------------------------------------------------------------
 // An INDEPENDENT reference implementation. It shares no code with src/: its own
@@ -338,6 +338,22 @@ it('the toy orbit exposes its predecessor by a public full-cycle walk', () => {
  expect(cycleLength).toBe(30);
  expect(predecessor).toBe(188n);
  expect(predecessor).toBe(enc.states[0]); // independent retained ground truth: x_1.
+ expect(publicCyclePredecessor(disclosed, key.n, 4096)).toEqual({cycleLength, predecessor});
+ expect(publicCyclePredecessor(disclosed, key.n, 29)).toBeNull();
+ expect(publicCyclePredecessor(1n, key.n, 1)).toEqual({cycleLength: 1, predecessor: 1n});
+ expect(() => publicCyclePredecessor(disclosed, key.n, 0)).toThrow('budget');
+});
+
+it('the learner disclosure path accepts only the disclosed state and public modulus', () => {
+ const source = readFileSync('src/main.ts', 'utf8');
+ const start = source.indexOf("el('#bg-disclose')"), end = source.indexOf("el('#bg-flip')", start);
+ expect(start).toBeGreaterThan(-1); expect(end).toBeGreaterThan(start);
+ const disclosure = source.slice(start, end);
+ expect(disclosure).toContain('publicCyclePredecessor(disclosed,k.N,k.N===437n?4096:1)');
+ // The only sender-state access selects x_2 for disclosure. Recovery after that
+ // must not read x_1, x_0, the seed, the factors or any other hidden predecessor.
+ expect(disclosure.match(/enc\.states\[/g)).toHaveLength(1);
+ expect(disclosure).not.toMatch(/predecessor\s*=\s*enc\./);
 });
 
 it('module boundaries keep the private factors out of the public generator path', () => {

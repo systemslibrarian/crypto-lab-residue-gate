@@ -159,6 +159,26 @@ export function keystreamFrom(x0: bigint, n: bigint, blockCount: number): {state
 }
 
 /**
+ * PUBLIC bounded cycle walk. Given only a disclosed state and n, return the last
+ * state before the orbit comes back to the disclosure. For the BBS permutation
+ * on QR_n that last state is the disclosure's unique predecessor. A null result
+ * means only that this explicit teaching budget did not traverse the whole cycle.
+ */
+export function publicCyclePredecessor(disclosed: bigint, n: bigint, maxSteps: number): {cycleLength: number; predecessor: bigint} | null {
+ if (n < 2n) throw Error('Cycle modulus must be at least 2.');
+ if (!Number.isInteger(maxSteps) || maxSteps < 1 || maxSteps > 4096) throw Error('Cycle-walk budget must be an integer 1–4096.');
+ const start = mod(disclosed, n);
+ if (start === 0n || gcd(start, n) !== 1n) throw Error('A disclosed generator state must be a unit modulo n.');
+ let x = start;
+ for (let cycleLength = 1; cycleLength <= maxSteps; cycleLength++) {
+  const predecessor = x;
+  x = x * x % n;
+  if (x === start) return {cycleLength, predecessor};
+ }
+ return null;
+}
+
+/**
  * BBS 1986 Theorem 3, p. 373: one step BACKWARD. Needs the factors.
  *
  * Returns the unique quadratic residue y with y² ≡ x (mod n), by taking the

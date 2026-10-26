@@ -9,9 +9,10 @@ test('game tally equals its recorded answers',async({page})=>{await boot(page);a
 test('roots verify before display and input rejection is explicit',async({page})=>{await boot(page);await expect(page.locator('[data-verdict=roots]')).toContainText('ROOTS VERIFIED');await page.locator('#a').fill('2');await page.getByRole('button',{name:'Find roots',exact:true}).click();await expect(page.locator('#prime-out')).toContainText('Not a square');await page.locator('#a').fill('bad');await page.getByRole('button',{name:'Find roots',exact:true}).click();await expect(page.locator('#prime-out')).toContainText('Input refused');});
 
 // ---------------------------------------------------------------------------
-// A-D-13. Every assertion below recomputes the displayed value from the PUBLIC
-// inputs (N from the key badge, the seed and the message typed into the page)
-// with arithmetic written here, never by calling the app's own helpers.
+// A-D-13. Every assertion below recomputes the displayed value with arithmetic
+// written here, never by calling the app's own helpers. N and the wire evidence
+// are public; the typed message and manual seed are retained sender-side ground
+// truth, not public protocol inputs. Attacker-view checks use only public data.
 // ---------------------------------------------------------------------------
 const refSquare=(x:bigint,n:bigint):bigint=>x*x%n;
 function refChain(seed:bigint,n:bigint,count:number):bigint[]{const out:bigint[]=[];let x=refSquare(seed,n);for(let i=0;i<count;i++){x=refSquare(x,n);out.push(x);}return out;}
