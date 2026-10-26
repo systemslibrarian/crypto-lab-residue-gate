@@ -324,16 +324,20 @@ it('a disclosed state yields its CURRENT block and every later block from n alon
  expect(previousState(enc.states[0], key.p, key.q)).toBe(enc.seedState);
 });
 
-it('the toy orbit cycles back publicly, so it promises no backward protection', () => {
+it('the toy orbit exposes its predecessor by a public full-cycle walk', () => {
  const key = makeBlumKey(19n, 23n);
  const enc = encryptBG(key.n, '1001110000010000', 5n);
  const disclosed = enc.states[1]; // x_2 = 384
  expect(disclosed).toBe(384n);
- let x = disclosed;
- for (let i = 0; i < 28; i++) x = x * x % key.n;
- expect(x).toBe(enc.seedState); // x_0 appears again after 28 public steps.
- x = x * x % key.n;
- expect(x).toBe(enc.states[0]); // then x_1.
+ let x = disclosed, predecessor = disclosed, cycleLength = 0;
+ do {
+  predecessor = x;
+  x = x * x % key.n;
+  cycleLength++;
+ } while (x !== disclosed && cycleLength <= key.n);
+ expect(cycleLength).toBe(30);
+ expect(predecessor).toBe(188n);
+ expect(predecessor).toBe(enc.states[0]); // independent retained ground truth: x_1.
 });
 
 it('module boundaries keep the private factors out of the public generator path', () => {

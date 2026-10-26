@@ -210,11 +210,11 @@
     "test": "empty messages do not claim a visible two-time-pad XOR leak"
   },
   {
-    "name": "manual fixed-point cycle is hidden from the disclosure result",
+    "name": "disclosure predecessor secretly uses the sender-only seed state",
     "file": "src/main.ts",
-    "anchor": "let cycleSteps:number|null=disclosed===enc.seedState?0:null;",
-    "replacement": "let cycleSteps:number|null=null;",
-    "test": "manual fixed-point and two-cycle seeds expose the earlier stream without a false classification"
+    "anchor": "predecessor=before;break;",
+    "replacement": "predecessor=enc.seedState+0n*before;break;",
+    "test": "state disclosure exposes its current block and every later wire block"
   },
   {
     "name": "sender-original table is mislabeled as matching a changed wire ciphertext",
@@ -226,8 +226,8 @@
   {
     "name": "worker transport failure is mislabeled as an input refusal",
     "file": "src/main.ts",
-    "anchor": "else if(workerOperationError(e))setOperationError(out,e);",
-    "replacement": "else if(workerOperationError(e)){setOperationError(out,e);setError(out,e);}",
+    "anchor": "if(out.isConnected)setOperationError(out,error);",
+    "replacement": "if(out.isConnected){setOperationError(out,error);setError(out,error);}",
     "test": "an unexpected worker error is not presented as a validity refusal"
   },
   {
@@ -240,8 +240,29 @@
   {
     "name": "every immediate return is mislabeled as the fixed point",
     "file": "src/main.ts",
-    "anchor": "fixedPoint=cycleSteps===0&&disclosed===1n",
-    "replacement": "fixedPoint=cycleSteps===0",
+    "anchor": "fixedPoint=cycleLength===1&&disclosed===1n",
+    "replacement": "fixedPoint=cycleLength!==null",
     "test": "manual fixed-point and two-cycle seeds expose the earlier stream without a false classification"
+  },
+  {
+    "name": "worker failure leaves the public session key usable after its private worker is gone",
+    "file": "src/main.ts",
+    "anchor": "retireBbsSecrets('session');epoch++;key=null;const state=",
+    "replacement": "retireBbsSecrets('session');epoch++;const state=",
+    "test": "an unexpected worker error is not presented as a validity refusal"
+  },
+  {
+    "name": "panel navigation retains a detached sender transcript",
+    "file": "src/main.ts",
+    "anchor": "window.addEventListener('lab-retire',()=>clear('panel'),{once:true});",
+    "replacement": "window.addEventListener('not-lab-retire',()=>clear('panel'),{once:true});",
+    "test": "input and session retirement erase the stored stream scenario"
+  },
+  {
+    "name": "empty-message wire evidence renders a header-only table",
+    "file": "src/main.ts",
+    "anchor": "wireRows=cipher.blocks.length?cipher.blocks.map((b,i)=>[i+1,b]):[['—','No ciphertext blocks (empty message)']]",
+    "replacement": "wireRows=cipher.blocks.map((b,i)=>[i+1,b])",
+    "test": "empty messages do not claim a visible two-time-pad XOR leak"
   }
 ]

@@ -72,10 +72,16 @@ test('state disclosure exposes its current block and every later wire block',asy
  const recovered=blocks.map((b,i)=>refXor(b,keys[i].slice(0,b.length))).join('');
  expect(recovered).toBe(message.slice(h));
  expect(await disclosure.getAttribute('data-bg-disclosure-recovered')).toBe(recovered);
+ let cycleLength=0,predecessor=disclosed;x=disclosed;
+ do{predecessor=x;x=refSquare(x,N);cycleLength++;expect(cycleLength).toBeLessThanOrEqual(4096);}while(x!==disclosed);
+ expect(cycleLength).toBe(30);expect(predecessor).toBe(188n);
+ const firstPlain=refXor(rows[0],refLow(predecessor,h).slice(0,rows[0].length));
+ expect(firstPlain+recovered).toBe(message);
  expect(await disclosure.getAttribute('data-bg-disclosure-all')).toBe(message);
- await expect(disclosure).toHaveAttribute('data-bg-cycle-steps','28');
- await expect(disclosure).toHaveAttribute('data-bg-cycle',/28 forward squarings/);
- await expect(disclosure).toContainText('Earlier wire bits recovered after the public cycle');
+ await expect(disclosure).toHaveAttribute('data-bg-cycle-length',String(cycleLength));
+ await expect(disclosure).toHaveAttribute('data-bg-cycle-predecessor',String(predecessor));
+ await expect(disclosure).toHaveAttribute('data-bg-cycle',/30 forward squarings/);
+ await expect(disclosure).toContainText('Earlier wire bits recovered from the public cycle predecessor');
  await expect(verdictBox).toContainText('fresh uniformly sampled start at cryptographic sizes');
 });
 
@@ -85,16 +91,18 @@ test('manual fixed-point and two-cycle seeds expose the earlier stream without a
   await page.getByRole('button',{name:'Disclose x₂'}).click();
   const disclosure=page.locator('[data-bg-disclosed]');
   await expect(disclosure).toHaveAttribute('data-bg-disclosed','1');
-  await expect(disclosure).toHaveAttribute('data-bg-cycle-steps','0');
+  await expect(disclosure).toHaveAttribute('data-bg-cycle-length','1');
+  await expect(disclosure).toHaveAttribute('data-bg-cycle-predecessor','1');
   await expect(disclosure).toHaveAttribute('data-bg-disclosure-all',message);
-  await expect(page.locator('[data-verdict=bg-disclosed]')).toContainText('manual seed entered a public fixed point');
+  await expect(page.locator('[data-verdict=bg-disclosed]')).toContainText('public fixed point');
   await expect(page.locator('[data-verdict=bg-disclosed]')).not.toContainText('not recovered by this bounded check');
  }
  const message='1001110000010000';await stream(page,message,'45');
  await page.getByRole('button',{name:'Disclose x₂'}).click();
  const twoCycle=page.locator('[data-bg-disclosed]');
  await expect(twoCycle).toHaveAttribute('data-bg-disclosed','277');
- await expect(twoCycle).toHaveAttribute('data-bg-cycle-steps','0');
+ await expect(twoCycle).toHaveAttribute('data-bg-cycle-length','2');
+ await expect(twoCycle).toHaveAttribute('data-bg-cycle-predecessor','254');
  await expect(twoCycle).toHaveAttribute('data-bg-disclosure-all',message);
  await expect(page.locator('[data-verdict=bg-disclosed]')).toContainText('public two-state cycle');
  await expect(page.locator('[data-verdict=bg-disclosed]')).not.toContainText('public fixed point');
@@ -232,6 +240,27 @@ test('an unexpected worker error is not presented as a validity refusal',async({
  await expect(page.locator('[data-verdict=bg-validity-refusal]')).toHaveCount(0);
  await expect(page.locator('#bg-out .verdict')).toContainText('Operation failed');
  await expect(page.locator('#bg-out .verdict')).not.toContainText('Input refused');
+ await expect(page.locator('[data-key-N]')).toHaveCount(0);
+ await expect(page.locator('#key-state')).toContainText('Session failed after an unexpected worker error');
+ await page.getByRole('button',{name:'Encrypt',exact:true}).click();
+ await expect(page.locator('#bg-out')).toContainText('Generate a session key');
+ await page.getByRole('button',{name:'Generate session key',exact:true}).click();
+ await expect(page.locator('[data-key-N]')).toHaveAttribute('data-key-N','437');
+ await page.getByRole('button',{name:'Encrypt',exact:true}).click();
+ await page.evaluate(()=>{
+  const original=Worker.prototype.postMessage;
+  const replacement=function(this:Worker,message:unknown):void{
+   if(typeof message==='object'&&message!==null&&(message as {name?:unknown}).name==='bgtamperstates')throw Error('synthetic final-state worker failure');
+   original.call(this,message);
+  };
+  Worker.prototype.postMessage=replacement as typeof Worker.prototype.postMessage;
+  try{(document.querySelector('#bg-tamper-invalid') as HTMLButtonElement).click();}
+  finally{Worker.prototype.postMessage=original;}
+ });
+ await expect(page.locator('#bg-out .verdict')).toContainText('Operation failed');
+ await expect(page.locator('#bg-out')).toContainText('synthetic final-state worker failure');
+ await expect(page.locator('#bg-out .verdict')).not.toContainText('Input refused');
+ await expect(page.locator('[data-key-N]')).toHaveCount(0);
  await page.getByRole('button',{name:'Generate session key',exact:true}).click();
  await expect(page.locator('[data-key-N]')).toHaveAttribute('data-key-N','437');
 });
@@ -305,6 +334,9 @@ test('same-seed control derives the two-time-pad XOR relation from both cipherte
 
 test('empty messages do not claim a visible two-time-pad XOR leak',async({page})=>{
  await stream(page,'','1');
+ const wire=page.getByRole('region',{name:'Transmitted ciphertext blocks'}),sender=page.getByRole('region',{name:'Sender original state-chain calculation'});
+ await expect(wire.locator('tbody tr')).toHaveCount(1);await expect(wire).toContainText('No ciphertext blocks (empty message)');
+ await expect(sender.locator('tbody tr')).toHaveCount(1);await expect(sender).toContainText('No emitting state (empty message)');
  await page.getByRole('button',{name:'Show same-seed leak'}).click();
  const out=page.locator('#bg-out');
  await expect(out).toContainText('there are no ciphertext bits to XOR');
@@ -349,4 +381,12 @@ test('input and session retirement erase the stored stream scenario',async({page
  await page.getByRole('button',{name:'Show same-seed leak'}).click();
  await expect(page.locator('[data-bg-final]')).toHaveCount(0);
  await expect(cancelled).toContainText('Generate a session key');
+ await stream(page,'1001110000010000','5');
+ const detached=await page.locator('#bg-out').elementHandle();expect(detached).not.toBeNull();
+ await page.getByRole('tab',{name:/Encrypt bits/}).click();
+ expect(await detached!.getAttribute('data-bg-secrets-cleared')).toBe('panel');
+ expect((await detached!.textContent())?.trim()).toBe('');
+ await page.getByRole('button',{name:'Discard key \/ cancel',exact:true}).click();
+ expect(await detached!.getAttribute('data-bg-secrets-cleared')).toBe('session');
+ expect((await detached!.textContent())?.trim()).toBe('');
 });
