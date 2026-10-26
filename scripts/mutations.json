@@ -229,5 +229,12 @@
     "anchor": "else if(workerOperationError(e))setOperationError(out,e);",
     "replacement": "else if(workerOperationError(e)){setOperationError(out,e);setError(out,e);}",
     "test": "an unexpected worker error is not presented as a validity refusal"
+  },
+  {
+    "name": "reference retirement is overstated as physical memory zeroization",
+    "file": "src/main.ts",
+    "anchor": "JavaScript does not prove memory zeroization.",
+    "replacement": "All secret bytes are physically zeroized.",
+    "test": "input and session retirement erase the stored stream scenario"
   }
 ]

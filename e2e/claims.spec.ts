@@ -338,6 +338,7 @@ test('input and session retirement erase the stored stream scenario',async({page
  const cancelled=page.locator('#bg-out');
  await page.getByRole('button',{name:'Discard key \/ cancel',exact:true}).click();
  await expect(cancelled).toHaveAttribute('data-bg-secrets-cleared','session');
+ await expect(page.locator('#key-state')).toContainText('JavaScript does not prove memory zeroization');
  await page.getByRole('button',{name:'Show same-seed leak'}).click();
  await expect(page.locator('[data-bg-final]')).toHaveCount(0);
  await expect(cancelled).toContainText('Generate a session key');
