@@ -1,6 +1,8 @@
-import {readFileSync,writeFileSync,readdirSync,existsSync} from 'node:fs';import {createHash} from 'node:crypto';import {spawnSync} from 'node:child_process';
+import {readFileSync,writeFileSync,readdirSync,existsSync} from 'node:fs';import {createHash} from 'node:crypto';import {spawnSync} from 'node:child_process';import {stripVTControlCharacters} from 'node:util';
 const specs=JSON.parse(readFileSync(new URL('./mutations.json',import.meta.url),'utf8'));
-function command(args){const p=spawnSync(args[0],args.slice(1),{encoding:'utf8',env:{...process.env,CI:'1'},timeout:300000,maxBuffer:5e6});return {ok:p.status===0,text:(p.stdout||'')+(p.stderr||'')};}
+const plain=text=>stripVTControlCharacters(text);
+if(plain('\u001b[31m1 failed\u001b[39m')!=='1 failed')throw Error('ANSI normalizer self-check failed.');
+function command(args){const p=spawnSync(args[0],args.slice(1),{encoding:'utf8',env:{...process.env,CI:'1',NO_COLOR:'1'},timeout:300000,maxBuffer:5e6});return {ok:p.status===0,text:plain((p.stdout||'')+(p.stderr||''))};}
 function hash(){const h=createHash('sha256');for(const file of readdirSync('dist/assets').filter(f=>f.endsWith('.js')).sort())h.update(readFileSync('dist/assets/'+file));return h.digest('hex');}
 const reports=[];
 for(const m of specs){const original=readFileSync(m.file,'utf8');if(original.split(m.anchor).length!==2)throw Error('Mutation anchor is not unique: '+m.name);const args=m.runner==='unit'?['npx','vitest','run','-t',m.test]:['npx','playwright','test','e2e/claims.spec.ts','--retries=0','-g',m.test];const baseline=command(args);if(!baseline.ok||!/[1-9]\d* passed/.test(baseline.text))throw Error('Baseline did not pass '+m.test+'\n'+baseline.text);const before=hash();let result;
