@@ -143,6 +143,67 @@ test('older asynchronous stream actions cannot overwrite newer ciphertext action
  await expect(page.locator('[data-verdict=bg-validity-refusal]')).toHaveCount(0);
 });
 
+test('input retirement discards an in-flight non-QR rejection',async({page})=>{
+ await stream(page,'1001110000010000','5');
+ await page.getByRole('button',{name:'Use a non-QR final state'}).click();
+ await expect(page.locator('[data-bg-final]')).toHaveAttribute('data-bg-final','37');
+ const out=page.locator('#bg-out');
+ await page.evaluate(()=>{
+  (document.querySelector('#bg-decrypt') as HTMLButtonElement).click();
+  const input=document.querySelector('#bg-bits') as HTMLInputElement;
+  input.value='1001110000010001';
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+ });
+ await expect(out).toHaveAttribute('data-bg-stale-decrypt-discarded',/\d+/);
+ await expect(out).toContainText('Retired: inputs changed');
+ await expect(page.locator('[data-verdict=bg-validity-refusal]')).toHaveCount(0);
+});
+
+test('key regeneration discards an in-flight decrypt rejection',async({page})=>{
+ await stream(page,'1001110000010000','5');
+ const out=page.locator('#bg-out');
+ await page.evaluate(()=>{
+  (document.querySelector('#bg-decrypt') as HTMLButtonElement).click();
+  (document.querySelector('#keygen') as HTMLButtonElement).click();
+ });
+ await expect(out).toHaveAttribute('data-bg-stale-decrypt-discarded',/\d+/);
+ await expect(out).toContainText('Retired: key changed');
+ await expect(out).not.toContainText('Cancelled');
+ await expect(page.locator('[data-verdict=bg-decrypt]')).toHaveCount(0);
+});
+
+test('key regeneration discards an in-flight final-state selection',async({page})=>{
+ await stream(page,'1001110000010000','5');
+ const out=page.locator('#bg-out');
+ await page.evaluate(()=>{
+  (document.querySelector('#bg-tamper-invalid') as HTMLButtonElement).click();
+  (document.querySelector('#keygen') as HTMLButtonElement).click();
+ });
+ await expect(out).toHaveAttribute('data-bg-stale-final-state-discarded',/\d+/);
+ await expect(out).toContainText('Retired: key changed');
+ await expect(out).not.toContainText('Cancelled');
+ await expect(page.locator('[data-verdict=bg-tampered]')).toHaveCount(0);
+});
+
+test('an unexpected worker error is not presented as a validity refusal',async({page})=>{
+ await stream(page,'1001110000010000','5');
+ await page.getByRole('button',{name:'Use a non-QR final state'}).click();
+ await expect(page.locator('[data-bg-final]')).toHaveAttribute('data-bg-final','37');
+ await page.evaluate(()=>{
+  const original=Worker.prototype.postMessage;
+  const replacement=function(this:Worker,message:unknown):void{
+   if(typeof message==='object'&&message!==null&&(message as {name?:unknown}).name==='bgdecrypt')throw Error('synthetic worker transport failure');
+   original.call(this,message);
+  };
+  Worker.prototype.postMessage=replacement as typeof Worker.prototype.postMessage;
+  try{(document.querySelector('#bg-decrypt') as HTMLButtonElement).click();}
+  finally{Worker.prototype.postMessage=original;}
+ });
+ await expect(page.locator('#bg-out')).toContainText('synthetic worker transport failure');
+ await expect(page.locator('[data-verdict=bg-validity-refusal]')).toHaveCount(0);
+ await expect(page.locator('#bg-out .verdict')).toContainText('Input refused');
+});
+
 test('an invalid seed is refused by name and retires the stream result',async({page})=>{
  await stream(page,'1001110000010000','5');
  await page.locator('#bg-seed').fill('19');          // 19 divides 437
@@ -194,7 +255,11 @@ test('same-seed control derives the two-time-pad XOR relation from both cipherte
  expect(c1).not.toBeNull();expect(c2).not.toBeNull();
  expect(refXor(c1!,c2!)).toBe(c);
  expect(c).toBe(m);expect(c).toBe(refXor('1001110000010000','0110001111101111'));
- expect(await row.getAttribute('data-bg-reuse-final1')).toBe(await row.getAttribute('data-bg-reuse-final2'));
+ const final1=await row.getAttribute('data-bg-reuse-final1'),final2=await row.getAttribute('data-bg-reuse-final2');
+ expect(final1).toBe(final2);
+ await page.getByText('Inspect both same-seed ciphertexts',{exact:true}).click();
+ const evidence=await page.getByRole('region',{name:'Same-seed ciphertext evidence'}).locator('tbody tr').allTextContents();
+ expect(evidence).toEqual(['First message'+c1+final1,'Second message'+c2+final2]);
  await expect(page.locator('[data-verdict=bg-reuse]')).toContainText('Fresh randomness is part of probabilistic encryption');
 });
 

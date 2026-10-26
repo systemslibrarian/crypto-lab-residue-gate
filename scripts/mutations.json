@@ -152,5 +152,26 @@
     "anchor": "data-bg-reuse-c2=\"'+c2+'\"",
     "replacement": "data-bg-reuse-c2=\"'+c1+'\"",
     "test": "same-seed control derives the two-time-pad XOR relation from both ciphertexts"
+  },
+  {
+    "name": "retired decrypt rejection overwrites the current result",
+    "file": "src/main.ts",
+    "anchor": "if(t&&(!life.live(t)||revision!==actionRevision)){out.dataset.bgStaleDecryptDiscarded=String(revision);return;}",
+    "replacement": "if(false){out.dataset.bgStaleDecryptDiscarded=String(revision);return;}",
+    "test": "input retirement discards an in-flight non-QR rejection"
+  },
+  {
+    "name": "retired final-state rejection overwrites the current result",
+    "file": "src/main.ts",
+    "anchor": "if(t&&(!life.live(t)||pendingRevision!==actionRevision)){out.dataset.bgStaleFinalStateDiscarded=String(pendingRevision);return;}",
+    "replacement": "if(false){out.dataset.bgStaleFinalStateDiscarded=String(pendingRevision);return;}",
+    "test": "key regeneration discards an in-flight final-state selection"
+  },
+  {
+    "name": "unexpected worker errors masquerade as validity refusals",
+    "file": "src/main.ts",
+    "anchor": "sourceScenario==='final-invalid'&&bgValidityError(e)&&encEpoch===epoch",
+    "replacement": "sourceScenario==='final-invalid'&&true&&encEpoch===epoch",
+    "test": "an unexpected worker error is not presented as a validity refusal"
   }
 ]
