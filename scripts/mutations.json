@@ -168,7 +168,7 @@
     "test": "key regeneration discards an in-flight final-state selection"
   },
   {
-    "name": "unexpected worker errors masquerade as validity refusals",
+    "name": "nonvalidity worker errors masquerade as QR validity refusals",
     "file": "src/main.ts",
     "anchor": "sourceScenario==='final-invalid'&&bgValidityError(e)&&encEpoch===epoch",
     "replacement": "sourceScenario==='final-invalid'&&(bgValidityError(e)||true)&&encEpoch===epoch",

@@ -229,6 +229,23 @@ test('an unexpected worker error is not presented as a validity refusal',async({
  await page.evaluate(()=>{
   const original=Worker.prototype.postMessage;
   const replacement=function(this:Worker,message:unknown):void{
+   if(typeof message==='object'&&message!==null&&(message as {name?:unknown}).name==='bgdecrypt'){
+    const id=(message as {id:number}).id;
+    setTimeout(()=>this.dispatchEvent(new MessageEvent('message',{data:{id,error:'synthetic worker computation failure'}})),0);
+    return;
+   }
+   original.call(this,message);
+  };
+  Worker.prototype.postMessage=replacement as typeof Worker.prototype.postMessage;
+  try{(document.querySelector('#bg-decrypt') as HTMLButtonElement).click();}
+  finally{Worker.prototype.postMessage=original;}
+ });
+ await expect(page.locator('#bg-out')).toContainText('synthetic worker computation failure');
+ await expect(page.locator('[data-verdict=bg-validity-refusal]')).toHaveCount(0);
+ await expect(page.locator('#bg-out .verdict')).toContainText('Input refused');
+ await page.evaluate(()=>{
+  const original=Worker.prototype.postMessage;
+  const replacement=function(this:Worker,message:unknown):void{
    if(typeof message==='object'&&message!==null&&(message as {name?:unknown}).name==='bgdecrypt')throw Error('synthetic worker transport failure');
    original.call(this,message);
   };
