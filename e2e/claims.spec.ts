@@ -436,3 +436,24 @@ test('input and session retirement erase the stored stream scenario',async({page
  expect(await detached!.getAttribute('data-bg-secrets-cleared')).toBe('session');
  expect((await detached!.textContent())?.trim()).toBe('');
 });
+
+test('zero has one root and a valid nonsquare is classified', async ({ page }) => {
+  await boot(page);
+  const output = page.locator('#prime-out');
+  for (const [p, multiple] of [['17', '0'], ['23', '46'], ['29', '29']]) {
+    await page.locator('#p').selectOption(p);
+    await page.locator('#a').fill(multiple);
+    await page.locator('#root').click();
+    await expect(output.locator('[data-verdict=roots]')).toContainText('0 is the only square root of 0 modulo ' + p);
+    await expect(output.locator('tbody tr').first().getByRole('cell')).toHaveText(['0', '0']);
+  }
+  await page.locator('#a').fill('2');
+  await page.locator('#root').click();
+  await expect(output.locator('[data-verdict=nonresidue]')).toContainText('No square roots');
+  await expect(output.locator('[data-verdict=roots]')).toHaveCount(0);
+  await page.locator('#p').selectOption('23');
+  await page.locator('#a').fill('4');
+  await page.locator('#root').click();
+  await expect(output.locator('.step')).toHaveCount(1);
+  await expect(output.locator('.step')).toContainText('Shortcut result');
+});
